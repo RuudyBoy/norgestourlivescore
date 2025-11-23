@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "635388619479",
+    "project_id": "norges-tour",
+    "storage_bucket": "norges-tour.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:635388619479:android:9e5fe564952a0bfb265e92",
+        "android_client_info": {
+          "package_name": "com.example.norges_tour_admin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB4nFGouoPATphuw6bEcZaD1vo-0mnMOkY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:635388619479:android:9330e8a60705a09b265e92",
+        "android_client_info": {
+          "package_name": "com.example.norges_tour_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB4nFGouoPATphuw6bEcZaD1vo-0mnMOkY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:635388619479:android:22f6809cc7e6a47a265e92",
+        "android_client_info": {
+          "package_name": "com.example.norges_tour_scorekeeper"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB4nFGouoPATphuw6bEcZaD1vo-0mnMOkY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

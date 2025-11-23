@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "norges-tour"
+  },
+  "targets": {
+    "norges-tour": {
+      "hosting": {
+        "score-app": [
+          "spikedunk"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

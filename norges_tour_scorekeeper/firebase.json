@@ -1,0 +1,40 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "norges-tour",
+          "appId": "1:635388619479:android:22f6809cc7e6a47a265e92",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "norges-tour",
+          "configurations": {
+            "android": "1:635388619479:android:22f6809cc7e6a47a265e92",
+            "ios": "1:635388619479:ios:e5e3aef65e35e374265e92",
+            "macos": "1:635388619479:ios:e5e3aef65e35e374265e92",
+            "web": "1:635388619479:web:008a6034c6a47523265e92",
+            "windows": "1:635388619479:web:264b37c248cfd1d6265e92"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "target": "score-app",
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
