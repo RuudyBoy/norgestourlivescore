@@ -72,6 +72,10 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   String p1Away = "Borte 1";
   String p2Away = "Borte 2";
 
+  // Add these to store current team names
+  String homeTeam = "Lag A";
+  String awayTeam = "Lag B";
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot>(
@@ -80,8 +84,8 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
         final data = snapshot.data!.data() as Map<String, dynamic>;
-        final homeTeam = data['team_a_name'] ?? 'Lag A';
-        final awayTeam = data['team_b_name'] ?? 'Lag B';
+        homeTeam = data['team_a_name'] ?? 'Lag A';
+        awayTeam = data['team_b_name'] ?? 'Lag B';
         final homeScore = data['home_score'] ?? 0;
         final awayScore = data['away_score'] ?? 0;
         final currentSet = data['current_set'] ?? 1; // Vi kan legge til sett-logikk senere
@@ -200,6 +204,56 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     );
   }
 
+  void _handleAceSelection(String serverName, String serverTeam, bool isHomeTeam) {
+    // Finn navnene på motstanderne (de som tok imot)
+    String receiver1 = isHomeTeam ? p1Away : p1Home;
+    String receiver2 = isHomeTeam ? p2Away : p2Home;
+    String receivingTeam = isHomeTeam ? awayTeam : homeTeam;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Hvem bommet på mottak?"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context); // Lukk dialogen
+                  _registerAceWithVictim(serverName, serverTeam, isHomeTeam, receiver1, receivingTeam);
+                },
+                child: Text(receiver1, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _registerAceWithVictim(serverName, serverTeam, isHomeTeam, receiver2, receivingTeam);
+                },
+                child: Text(receiver2, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _registerAceWithVictim(String server, String sTeam, bool isHome, String victim, String vTeam) {
+    // 1. Registrer ESS på serveren (som vanlig)
+    _registerStat(server, sTeam, isHome, "Ace", true);
+
+    // 2. Registrer MOTTAKSFEIL på offeret (uten å gi poeng på nytt, det gjorde vi i steg 1)
+    FirebaseFirestore.instance.collection('matches').doc(widget.matchId).collection('events').add({
+      'player': victim,
+      'team': vTeam,
+      'action': "Reception Error", // Ny stats-type!
+      'point_to': "none",          // Poenget er allerede gitt til serveren
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
   // --- MENYEN SOM KOMMER OPP (Action Sheet) ---
   void _showActionSheet(String player, String team, bool isHomeTeam) {
     showModalBottomSheet(
@@ -224,7 +278,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                           const SizedBox(height: 10),
                           _actionBtn("BLOKK POENG", Colors.green, () => _registerStat(player, team, isHomeTeam, "Block", true)),
                           const SizedBox(height: 10),
-                          _actionBtn("SERVE ESS", Colors.green, () => _registerStat(player, team, isHomeTeam, "Ace", true)),
+                          _actionBtn("SERVE ESS", Colors.green, () => _handleAceSelection(player, team, isHomeTeam)),
                         ],
                       ),
                     ),
@@ -233,7 +287,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                     Expanded(
                       child: Column(
                         children: [
-                          _actionBtn("ANGREPSFEIL (Ut/Nett)", Colors.red[300]!, () => _registerStat(player, team, isHomeTeam, "Attack Error", false)),
+                          _actionBtn("ANGREPSFEIL", Colors.red[300]!, () => _registerStat(player, team, isHomeTeam, "Attack Error", false)),
                           const SizedBox(height: 10),
                           _actionBtn("SERVEFEIL", Colors.red[300]!, () => _registerStat(player, team, isHomeTeam, "Service Error", false)),
                           const SizedBox(height: 10),
@@ -268,23 +322,22 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   }
 
   // --- LOGIKK FOR Å OPPDATERE FIREBASE ---
-  void _registerStat(String player, String team, bool isHomeTeam, String actionType, bool isPositive) {
-    // isPositive = true betyr at spilleren gjorde noe bra (Kill/Ace) -> Poeng til SPILLERENS lag.
-    // isPositive = false betyr at spilleren gjorde noe dumt (Feil) -> Poeng til MOTSATT lag.
+ void _registerStat(String player, String team, bool isHomeTeam, String actionType, bool isPositive) {
     
+    // 1. Beregn hvem som får poenget (Som før)
     bool pointToHome;
     if (isPositive) {
-      pointToHome = isHomeTeam; // Hjemmespiller gjorde noe bra -> Hjemmepoeng
+      pointToHome = isHomeTeam; 
     } else {
-      pointToHome = !isHomeTeam; // Hjemmespiller gjorde feil -> Bortepoeng
+      pointToHome = !isHomeTeam;
     }
 
-    // 1. Oppdater Score
+    // 2. Oppdater poengtavla (Som før)
     FirebaseFirestore.instance.collection('matches').doc(widget.matchId).update({
       pointToHome ? 'home_score' : 'away_score': FieldValue.increment(1),
     });
 
-    // 2. Logg hendelsen for statistikk (Dette legger vi i en under-kolleksjon 'events')
+    // 3. Logg selve hendelsen (Som før)
     FirebaseFirestore.instance.collection('matches').doc(widget.matchId).collection('events').add({
       'player': player,
       'team': team,
@@ -292,6 +345,43 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       'point_to': pointToHome ? 'home' : 'away',
       'timestamp': FieldValue.serverTimestamp(),
     });
+
+    // --- NY MAGI: AUTOMATISK LEGG-STATISTIKK ---
+    
+    // Vi bryr oss kun om ANGREP. (Ikke serve, ikke blokk, ikke teknisk feil).
+    // "Angrep (Kill)" betyr suksess for leggeren.
+    // "Angrepsfeil" betyr (potensielt) feil for leggeren.
+    
+    if (actionType == "Kill" || actionType == "Attack Error") {
+      
+      // Finn ut hvem makkeren (leggeren) er
+      String partnerName = "";
+      if (isHomeTeam) {
+        partnerName = (player == p1Home) ? p2Home : p1Home;
+      } else {
+        partnerName = (player == p1Away) ? p2Away : p1Away;
+      }
+
+      // Hvis det ble POENG (Kill), så var det en Assist (Målgivende)
+      if (actionType == "Kill") {
+        FirebaseFirestore.instance.collection('matches').doc(widget.matchId).collection('events').add({
+          'player': partnerName,    // Makkeren får æren
+          'team': team,
+          'action': "Set Assist",   // Suksess!
+          'point_to': "none",       // (Ikke tell poenget to ganger)
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+      }
+
+      // UANSETT om det ble Kill eller Feil, så var det et FORSØK på legg
+      FirebaseFirestore.instance.collection('matches').doc(widget.matchId).collection('events').add({
+        'player': partnerName,
+        'team': team,
+        'action': "Set Attempt",    // Legg forsøkt
+        'point_to': "none",
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    }
   }
 
   void _undoLastAction() async {
