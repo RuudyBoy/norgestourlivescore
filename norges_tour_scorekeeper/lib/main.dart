@@ -21,10 +21,43 @@ class ScorekeeperApp extends StatelessWidget {
       title: 'VolleyLive Dommer',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: Colors.transparent, // Gjør bakgrunnen transparent for å vise bildet
+        primaryColor: const Color(0xFFFF3B30),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFFFF3B30),
+          secondary: Color(0xFFFF3B30),
+          surface: Color(0xFF1E1E1E),
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF121212),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: true,
+        ),
+        cardTheme: CardThemeData(
+          color: const Color(0xFF1E1E1E),
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        ),
+        visualDensity: VisualDensity.adaptivePlatformDensity,
         useMaterial3: true,
-        scaffoldBackgroundColor: Colors.grey[100],
       ),
+      builder: (context, child) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.black, // Fallback
+            image: DecorationImage(
+              image: AssetImage('assets/images/bakgrunn.png'),
+              fit: BoxFit.cover,
+            ),
+          ),
+          child: child,
+        );
+      },
       home: const LandingPage(),
     );
   }
@@ -51,6 +84,7 @@ class _LandingPageState extends State<LandingPage> {
   Widget build(BuildContext context) {
     if (matchId == null) {
       return const Scaffold(
+        backgroundColor: Colors.transparent,
         body: Center(child: Text("Ingen kamp valgt. Scan QR-kode.")),
       );
     }
@@ -104,8 +138,16 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
         });
 
         return Scaffold(
+          backgroundColor: Colors.transparent,
           appBar: AppBar(
-            title: Text("Sett $currentSet"),
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset('assets/images/spikedunk_logo.png', height: 40, fit: BoxFit.contain),
+                const SizedBox(width: 8),
+                Text("Sett $currentSet"),
+              ],
+            ),
             centerTitle: true,
             leading: IconButton(icon: const Icon(Icons.swap_horiz), onPressed: () => _showSideSwitchDialog("Manuelt sidebytte")),
             actions: [
@@ -131,7 +173,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   Widget _buildScoreboard(int homeScore, int awayScore) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
-      color: Colors.white,
+      color: Colors.transparent,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
@@ -180,31 +222,6 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
 
   // --- STATS OG LOGIKK ---
 
-  Future<String?> _showSubtypePicker(String title, List<String> options) {
-    return showModalBottomSheet<String>(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 15),
-            Wrap(
-              spacing: 10, runSpacing: 10, alignment: WrapAlignment.center,
-              children: options.map((opt) => ElevatedButton(
-                onPressed: () => Navigator.pop(context, opt),
-                child: Text(opt),
-              )).toList(),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _showActionSheet(String name, String? id, String team, bool isHomeTeam, int playerIdx) {
     bool isServer = (isHomeTeam && servingTeam == 'home' && serverHomeIdx == playerIdx) ||
                     (!isHomeTeam && servingTeam == 'away' && serverAwayIdx == playerIdx);
@@ -221,26 +238,17 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
             Expanded(child: Row(
               children: [
                 Expanded(child: Column(children: [
-                  _actionBtn("ANGREP (Kill)", Colors.green, () async {
-                    String? sub = await _showSubtypePicker("Type angrep", ['Hardtangrep: Linje', 'Hardtangrep: Dia', 'Blokk ut', 'Shot: Linje', 'Shot: Dia', 'Cutshot']);
-                    if (sub != null) _registerStat(name, id, team, isHomeTeam, "Kill", true, subType: sub);
-                  }),
+                  _actionBtn("ANGREP (Kill)", Colors.green, () => _registerStat(name, id, team, isHomeTeam, "Kill", true)),
                   const SizedBox(height: 10),
                   _actionBtn("BLOKK POENG", Colors.green, () => _registerStat(name, id, team, isHomeTeam, "Block", true)),
                   if (isServer) ...[
                     const SizedBox(height: 10),
-                    _actionBtn("SERVE ESS", Colors.green, () async {
-                      String? sub = await _showSubtypePicker("Type serve", ['Hoppserve', 'Flakk']);
-                      if (sub != null) _handleAceSelection(name, id, team, isHomeTeam, sub);
-                    }),
+                    _actionBtn("SERVE ESS", Colors.green, () => _handleAceSelection(name, id, team, isHomeTeam, "Ace")),
                   ],
                 ])),
                 const SizedBox(width: 20),
                 Expanded(child: Column(children: [
-                  _actionBtn("ANGREPSFEIL", Colors.red[300]!, () async {
-                    String? sub = await _showSubtypePicker("Feiltype", ['Nett', 'Ut']);
-                    if (sub != null) _registerStat(name, id, team, isHomeTeam, "Attack Error", false, subType: sub);
-                  }),
+                  _actionBtn("ANGREPSFEIL", Colors.red[300]!, () => _registerStat(name, id, team, isHomeTeam, "Attack Error", false)),
                   if (isServer) ...[
                     const SizedBox(height: 10),
                     _actionBtn("SERVEFEIL", Colors.red[300]!, () => _registerStat(name, id, team, isHomeTeam, "Service Error", false)),
@@ -330,7 +338,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     p1AwayName = data['team_b_p1_name'] ?? "Borte 1"; p1AwayId = data['team_b_p1_id']; p1AwayImg = data['team_b_p1_img'];
     p2AwayName = data['team_b_p2_name'] ?? "Borte 2"; p2AwayId = data['team_b_p2_id']; p2AwayImg = data['team_b_p2_img'];
     
-    if (data.containsKey('serving_team')) {
+    if (data.containsKey('serving_team') && data['serving_team'] != null) {
       servingTeam = data['serving_team'];
       serverHomeIdx = data['server_home_idx'] ?? 1;
       serverAwayIdx = data['server_away_idx'] ?? 1;
@@ -432,6 +440,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
 
   Widget _buildSetupScreen() {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text("Kampoppsett")),
       body: SingleChildScrollView(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         const Text("1. Hvem starter med serven?", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -461,7 +470,11 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
 
   void _finishSetup() {
     int fHome = setupHomeFirstServer, fAway = setupAwayFirstServer;
-    if (setupServingTeam == 'away') fHome = (fHome == 1) ? 2 : 1; else fAway = (fAway == 1) ? 2 : 1;
+    if (setupServingTeam == 'away') {
+      fHome = (fHome == 1) ? 2 : 1;
+    } else {
+      fAway = (fAway == 1) ? 2 : 1;
+    }
     FirebaseFirestore.instance.collection('matches').doc(widget.matchId).update({
       'serving_team': setupServingTeam, 'server_home_idx': fHome, 'server_away_idx': fAway, 'status': 'live',
     });
