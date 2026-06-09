@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
+import 'theme/app_theme.dart';
+import 'theme/app_colors.dart';
+import 'theme/app_text_styles.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,39 +22,17 @@ class ScorekeeperApp extends StatelessWidget {
     return MaterialApp(
       title: 'VolleyLive Dommer',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: Colors.transparent, // Gjør bakgrunnen transparent for å vise bildet
-        primaryColor: const Color(0xFFFF3B30),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFFF3B30),
-          secondary: Color(0xFFFF3B30),
-          surface: Color(0xFF1E1E1E),
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF121212),
-          foregroundColor: Colors.white,
-          elevation: 0,
-          centerTitle: true,
-        ),
-        cardTheme: CardThemeData(
-          color: const Color(0xFF1E1E1E),
-          elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        ),
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-        useMaterial3: true,
+      theme: AppTheme.dark.copyWith(
+        scaffoldBackgroundColor: Colors.transparent,
       ),
       builder: (context, child) {
         return Container(
-          decoration: const BoxDecoration(
-            color: Colors.black, // Fallback
+          decoration: BoxDecoration(
+            color: AppColors.nightSurface0, // Fallback
             image: DecorationImage(
-              image: AssetImage('assets/images/bakgrunn.png'),
+              image: const AssetImage('assets/images/hero_bg.jpg'),
               fit: BoxFit.cover,
+              colorFilter: ColorFilter.mode(AppColors.nightSurface0.withOpacity(0.85), BlendMode.srcOver),
             ),
           ),
           child: child,
@@ -128,14 +109,14 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
 
   Color _getColor(String colorStr) {
     switch (colorStr) {
-      case 'red': return Colors.red;
-      case 'blue': return Colors.blue;
-      case 'green': return Colors.green;
-      case 'orange': return Colors.orange;
-      case 'purple': return Colors.purple;
-      case 'black': return Colors.black;
-      case 'yellow': return Colors.yellow;
-      default: return Colors.grey;
+      case 'red': return AppColors.coral;
+      case 'blue': return AppColors.blueBright;
+      case 'green': return AppColors.green;
+      case 'orange': return Colors.orangeAccent;
+      case 'purple': return Colors.deepPurpleAccent;
+      case 'black': return AppColors.nightSurface0;
+      case 'yellow': return Colors.amber;
+      default: return AppColors.nightInk3;
     }
   }
 
@@ -207,7 +188,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       color: Colors.transparent,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: isSwapped ? [awayCol, const Text("-", style: TextStyle(fontSize: 40, color: Colors.grey)), homeCol] : [homeCol, const Text("-", style: TextStyle(fontSize: 40, color: Colors.grey)), awayCol],
+        children: isSwapped ? [awayCol, Text("-", style: AppText.dispScore(60).copyWith(color: AppColors.nightInk3)), homeCol] : [homeCol, Text("-", style: AppText.dispScore(60).copyWith(color: AppColors.nightInk3)), awayCol],
       ),
     );
   }
@@ -240,8 +221,8 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       child: ElevatedButton.icon(
         onPressed: _undoLastAction,
         icon: const Icon(Icons.undo),
-        label: const Text("Angre siste poeng"),
-        style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[800], foregroundColor: Colors.white),
+        label: Text("Angre siste poeng", style: AppText.uiCta),
+        style: ElevatedButton.styleFrom(backgroundColor: AppColors.nightSurface2, foregroundColor: Colors.white),
       ),
     );
   }
@@ -583,14 +564,14 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
 
   Widget _buildScoreColumn(String team, int score, Color color, int timeouts, bool isHome) {
     return Column(children: [
-      Text(team, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
-      Text("$score", style: const TextStyle(fontSize: 60, fontWeight: FontWeight.bold)),
-      if (timeouts > 0) Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: Colors.yellow[700], borderRadius: BorderRadius.circular(4)), child: const Text("T", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+      Text(team, style: AppText.dispH2(20).copyWith(color: color)),
+      Text("$score", style: AppText.dispScore(80).copyWith(color: color)),
+      if (timeouts > 0) Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(4)), child: Text("T", style: AppText.uiCta.copyWith(fontSize: 12, color: AppColors.nightInk))),
       const SizedBox(height: 8),
       ElevatedButton(
-        style: ElevatedButton.styleFrom(backgroundColor: color.withOpacity(0.2), foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
+        style: ElevatedButton.styleFrom(backgroundColor: color.withOpacity(0.2), foregroundColor: AppColors.nightInk, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
         onPressed: () => _registerOpponentError(isHome),
-        child: const Text("Motstanderfeil", style: TextStyle(fontSize: 12)),
+        child: Text("Motstanderfeil", style: AppText.uiCta.copyWith(fontSize: 12, color: AppColors.nightInk)),
       ),
     ]);
   }
@@ -599,8 +580,8 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     bool isServing = (isHomeTeam && servingTeam == 'home' && serverHomeIdx == playerIdx) || (!isHomeTeam && servingTeam == 'away' && serverAwayIdx == playerIdx);
     return Expanded(child: SizedBox(width: double.infinity, child: ElevatedButton(
       style: ElevatedButton.styleFrom(
-        backgroundColor: isHomeTeam ? _getColor(homeColorStr).withOpacity(0.15) : _getColor(awayColorStr).withOpacity(0.15),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: isServing ? const BorderSide(color: Colors.orange, width: 3) : BorderSide.none),
+        backgroundColor: isHomeTeam ? _getColor(homeColorStr).withOpacity(0.2) : _getColor(awayColorStr).withOpacity(0.2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusButton), side: isServing ? const BorderSide(color: AppColors.coral, width: 3) : BorderSide.none),
         padding: const EdgeInsets.symmetric(vertical: 8),
       ),
       onPressed: () => _showActionSheet(name, id, team, isHomeTeam, playerIdx),
@@ -608,9 +589,9 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
         Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           CircleAvatar(radius: 20, backgroundImage: (imageUrl != null && imageUrl.isNotEmpty) ? NetworkImage(imageUrl) : null, child: (imageUrl == null || imageUrl.isEmpty) ? const Icon(Icons.person) : null),
           const SizedBox(height: 4),
-          Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87), overflow: TextOverflow.ellipsis),
+          Text(name, style: AppText.uiTitle.copyWith(color: AppColors.nightInk), overflow: TextOverflow.ellipsis),
         ])),
-        if (isServing) const Positioned(right: 0, top: 0, child: Icon(Icons.sports_volleyball, color: Colors.orange, size: 24)),
+        if (isServing) const Positioned(right: 0, top: 0, child: Icon(Icons.sports_volleyball, color: AppColors.coral, size: 24)),
       ]),
     )));
   }
@@ -620,10 +601,10 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       style: ElevatedButton.styleFrom(
         backgroundColor: color, 
         foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusButton)),
       ),
       onPressed: onTap,
-      child: Text(text, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+      child: Text(text, textAlign: TextAlign.center, style: AppText.uiCta.copyWith(fontSize: 12)),
     )));
   }
 
