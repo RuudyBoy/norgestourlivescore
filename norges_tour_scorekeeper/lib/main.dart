@@ -198,11 +198,15 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       _buildPlayerButton(p1HomeName, p1HomeId, homeTeamName, true, p1HomeImg, 1),
       const SizedBox(height: 5),
       _buildPlayerButton(p2HomeName, p2HomeId, homeTeamName, true, p2HomeImg, 2),
+      const SizedBox(height: 5),
+      _buildTeamActionButton("Motstander feil", _getColor(homeColorStr), () => _registerOpponentError(true)),
     ]));
     Widget awayPlayers = Expanded(child: Column(children: [
       _buildPlayerButton(p1AwayName, p1AwayId, awayTeamName, false, p1AwayImg, 1),
       const SizedBox(height: 5),
       _buildPlayerButton(p2AwayName, p2AwayId, awayTeamName, false, p2AwayImg, 2),
+      const SizedBox(height: 5),
+      _buildTeamActionButton("Motstander feil", _getColor(awayColorStr), () => _registerOpponentError(false)),
     ]));
 
     return Expanded(
@@ -241,6 +245,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
         child: Column(
           children: [
             Text("Hva gjorde $name?", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Text("Stilling: $_lastCheckedHome - $_lastCheckedAway", style: const TextStyle(fontSize: 16, color: Colors.grey)),
             const SizedBox(height: 20),
             Expanded(child: Row(
               children: [
@@ -285,6 +290,9 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       pointToHome ? 'home_score' : 'away_score': FieldValue.increment(1),
     });
 
+    int newHomeScore = _lastCheckedHome + (pointToHome ? 1 : 0);
+    int newAwayScore = _lastCheckedAway + (!pointToHome ? 1 : 0);
+
     FirebaseFirestore.instance.collection('matches').doc(widget.matchId).collection('events').add({
       'player_name': name,
       'player_id': id,
@@ -297,6 +305,9 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       'prev_serving_team': servingTeam,
       'prev_server_home_idx': serverHomeIdx,
       'prev_server_away_idx': serverAwayIdx,
+      'home_score': newHomeScore,
+      'away_score': newAwayScore,
+      'set_number': _lastCheckedSet,
     });
 
     if (actionType == "Kill" || actionType == "Attack Error") {
@@ -423,6 +434,9 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     FirebaseFirestore.instance.collection('matches').doc(widget.matchId).update({
       pointToHome ? 'home_score' : 'away_score': FieldValue.increment(1),
     });
+    int newHomeScore = _lastCheckedHome + (pointToHome ? 1 : 0);
+    int newAwayScore = _lastCheckedAway + (!pointToHome ? 1 : 0);
+
     FirebaseFirestore.instance.collection('matches').doc(widget.matchId).collection('events').add({
       'player_name': "Lag",
       'player_id': null,
@@ -434,6 +448,9 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       'prev_serving_team': servingTeam,
       'prev_server_home_idx': serverHomeIdx,
       'prev_server_away_idx': serverAwayIdx,
+      'home_score': newHomeScore,
+      'away_score': newAwayScore,
+      'set_number': _lastCheckedSet,
     });
   }
 
@@ -606,6 +623,19 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       onPressed: onTap,
       child: Text(text, textAlign: TextAlign.center, style: AppText.uiCta.copyWith(fontSize: 12)),
     )));
+  }
+
+  Widget _buildTeamActionButton(String text, Color color, VoidCallback onTap) {
+    return SizedBox(width: double.infinity, child: ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color.withOpacity(0.2), 
+        foregroundColor: AppColors.nightInk,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusButton)),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+      ),
+      onPressed: onTap,
+      child: Text(text, textAlign: TextAlign.center, style: AppText.uiCta.copyWith(fontSize: 14)),
+    ));
   }
 
   // --- SETUP OG REGLER ---
