@@ -97,6 +97,8 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   int _lastCheckedHome = -1;
   int _lastCheckedAway = -1;
   int _lastCheckedSet = -1;
+  int homeSets = 0;
+  int awaySets = 0;
 
   String? setupServingTeam;
   int setupHomeFirstServer = 1, setupAwayFirstServer = 1;
@@ -135,13 +137,15 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
         final homeScore = data['home_score'] ?? 0;
         final awayScore = data['away_score'] ?? 0;
         final currentSet = data['current_set'] ?? 1;
+        homeSets = data['home_sets'] ?? 0;
+        awaySets = data['away_sets'] ?? 0;
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (homeScore != _lastCheckedHome || awayScore != _lastCheckedAway || currentSet != _lastCheckedSet) {
             _lastCheckedHome = homeScore;
             _lastCheckedAway = awayScore;
             _lastCheckedSet = currentSet;
-            _checkGameRules(homeScore, awayScore, currentSet);
+            _checkGameRules(homeScore, awayScore, currentSet, data);
           }
         });
 
@@ -719,7 +723,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     });
   }
 
-  void _checkGameRules(int home, int away, int set) {
+  void _checkGameRules(int home, int away, int set, Map<String, dynamic> matchData) {
     int sum = home + away;
     if (sum > 0 && sum % ((set == 3) ? 5 : 7) == 0 && lastSwappedScore != sum) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("SIDEBYTTE!"), backgroundColor: Colors.orange));
@@ -730,7 +734,10 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     }
     if (set < 3 && sum == 21 && !techTimeoutTaken) { _takeTimeout(true, isTech: true); FirebaseFirestore.instance.collection('matches').doc(widget.matchId).update({'tech_timeout': true}); }
     int target = (set == 3) ? 15 : 21;
-    if ((home >= target && home >= away + 2) || (away >= target && away >= home + 2)) _showSetWinDialog(home > away ? homeTeamName : awayTeamName, set);
+    if ((home >= target && home >= away + 2) || (away >= target && away >= home + 2)) {
+       bool isHomeWin = home > away;
+       _showSetWinDialog(isHomeWin ? homeTeamName : awayTeamName, set, isHomeWin, matchData);
+    }
   }
 
   void _takeTimeout(bool isHome, {bool isTech = false}) {
@@ -738,11 +745,72 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     if (!isTech) FirebaseFirestore.instance.collection('matches').doc(widget.matchId).update({isHome ? 'timeouts_home' : 'timeouts_away': 1});
   }
 
-  void _showSetWinDialog(String w, int s) {
-    showDialog(context: context, builder: (c) => AlertDialog(title: Text("$w vant sett $s!"), actions: [ElevatedButton(onPressed: () { Navigator.pop(c); _finishSet(); }, child: const Text("Neste sett"))]));
+  void _showSetWinDialog(String w, int s, bool isHomeWin, Map<String, dynamic> matchData) {
+    bool matchWon = (isHomeWin && homeSets == 1) || (!isHomeWin && awaySets == 1);
+    
+    showDialog(context: context, builder: (c) => AlertDialog(
+      title: Text(matchWon ? "$w vant kampen!" : "$w vant sett $s!"), 
+      actions: [
+        ElevatedButton(
+          onPressed: () { 
+            Navigator.pop(c); 
+            _finishSet(isHomeWin, matchWon, matchData); 
+          }, 
+          child: Text(matchWon ? "Avslutt kamp" : "Neste sett")
+        )
+      ]
+    ));
   }
 
-  void _finishSet() => FirebaseFirestore.instance.collection('matches').doc(widget.matchId).update({'home_score': 0, 'away_score': 0, 'current_set': FieldValue.increment(1), 'timeouts_home': 0, 'timeouts_away': 0, 'tech_timeout': false, 'serving_team': null});
+  void _finishSet(bool isHomeWin, bool matchWon, Map<String, dynamic> matchData) {
+    int newHomeSets = isHomeWin ? homeSets + 1 : homeSets;
+    int newAwaySets = !isHomeWin ? awaySets + 1 : awaySets;
+
+    WriteBatch batch = FirebaseFirestore.instance.batch();
+    DocumentReference matchRef = FirebaseFirestore.instance.collection('matches').doc(widget.matchId);
+
+    if (matchWon) {
+      batch.update(matchRef, {
+        'status': 'finished',
+        'home_sets': newHomeSets,
+        'away_sets': newAwaySets,
+        'home_score': newHomeSets, // For legacy support i appen
+        'away_score': newAwaySets,
+      });
+
+      // --- GRUPPESPILL PLASSERING ---
+      String? matchType = matchData['match_type'];
+      if (matchType == 'group_final' || matchType == 'group_bronze') {
+        String? teamAId = matchData['team_a_id'];
+        String? teamBId = matchData['team_b_id'];
+        
+        if (teamAId != null && teamBId != null) {
+          String winnerId = isHomeWin ? teamAId : teamBId;
+          String loserId = isHomeWin ? teamBId : teamAId;
+          
+          int winnerPlacement = matchType == 'group_final' ? 1 : 3;
+          int loserPlacement = matchType == 'group_final' ? 2 : 4;
+          
+          batch.update(FirebaseFirestore.instance.collection('teams').doc(winnerId), {'group_placement': winnerPlacement});
+          batch.update(FirebaseFirestore.instance.collection('teams').doc(loserId), {'group_placement': loserPlacement});
+        }
+      }
+    } else {
+      batch.update(matchRef, {
+        'home_sets': newHomeSets,
+        'away_sets': newAwaySets,
+        'home_score': 0, 
+        'away_score': 0, 
+        'current_set': FieldValue.increment(1), 
+        'timeouts_home': 0, 
+        'timeouts_away': 0, 
+        'tech_timeout': false, 
+        'serving_team': null
+      });
+    }
+
+    batch.commit();
+  }
 
   void _showSideSwitchDialog(String m) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.orange));
 }
