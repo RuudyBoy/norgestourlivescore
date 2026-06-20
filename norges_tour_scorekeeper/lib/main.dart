@@ -127,9 +127,15 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('matches').doc(widget.matchId).snapshots(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text("Feil: ${snapshot.error}", style: const TextStyle(color: Colors.white)));
+        }
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.data!.exists) {
+          return const Center(child: Text("Kampen finnes ikke.", style: TextStyle(color: Colors.white)));
+        }
 
-        final data = snapshot.data!.data() as Map<String, dynamic>;
+        final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
         _initializeData(data);
 
         if (!isSetupDone) return _buildSetupScreen();
@@ -280,7 +286,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     );
   }
 
-  void _registerStat(String name, String? id, String team, bool isHomeTeam, String actionType, bool isPositive, {String? subType}) {
+  void _registerStat(String name, String? id, String team, bool isHomeTeam, String actionType, bool isPositive, {String? subType, bool shouldPop = true}) {
     bool pointToHome = isPositive ? isHomeTeam : !isHomeTeam;
     String phase = servingTeam == (pointToHome ? (isHomeTeam ? 'home' : 'away') : (isHomeTeam ? 'away' : 'home')) ? "Break Point" : "Sideout";
     
@@ -319,7 +325,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     }
     
     // Use pop instead of popUntil to avoid web routing issues
-    if (Navigator.canPop(context)) {
+    if (shouldPop && Navigator.canPop(context)) {
       Navigator.pop(context);
     }
   }
@@ -352,7 +358,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
 
   void _registerAceComplex(String sName, String? sId, String sTeam, bool isHome, String vName, String? vId, String vTeam, String serveType) {
     if (Navigator.canPop(context)) Navigator.pop(context); // Lukk dialog
-    _registerStat(sName, sId, sTeam, isHome, "Ace", true, subType: serveType);
+    _registerStat(sName, sId, sTeam, isHome, "Ace", true, subType: serveType, shouldPop: false);
     FirebaseFirestore.instance.collection('matches').doc(widget.matchId).collection('events').add({
       'player_name': vName, 'player_id': vId, 'team': vTeam,
       'action': "Reception Error", 'sub_type': serveType, 'point_to': "none",
@@ -389,7 +395,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
 
   void _registerKill(String name, String? id, String team, bool isHomeTeam, String origin, BuildContext dialogContext) {
     if (Navigator.canPop(dialogContext)) Navigator.pop(dialogContext);
-    _registerStat(name, id, team, isHomeTeam, "Kill", true, subType: origin);
+    _registerStat(name, id, team, isHomeTeam, "Kill", true, subType: origin, shouldPop: false);
   }
 
   void _handleBlockSelection(String name, String? id, String team, bool isHomeTeam) {
@@ -421,7 +427,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
 
   void _registerBlock(String name, String? id, String team, bool isHomeTeam, String oppName, String? oppId, String oppTeam, BuildContext dialogContext) {
     if (Navigator.canPop(dialogContext)) Navigator.pop(dialogContext);
-    _registerStat(name, id, team, isHomeTeam, "Block", true);
+    _registerStat(name, id, team, isHomeTeam, "Block", true, shouldPop: false);
     FirebaseFirestore.instance.collection('matches').doc(widget.matchId).collection('events').add({
       'player_name': oppName,
       'player_id': oppId,
