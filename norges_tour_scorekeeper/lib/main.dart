@@ -27,14 +27,7 @@ class ScorekeeperApp extends StatelessWidget {
       ),
       builder: (context, child) {
         return Container(
-          decoration: BoxDecoration(
-            color: AppColors.nightSurface0, // Fallback
-            image: DecorationImage(
-              image: const AssetImage('assets/images/hero_bg.jpg'),
-              fit: BoxFit.cover,
-              colorFilter: ColorFilter.mode(AppColors.nightSurface0.withOpacity(0.85), BlendMode.srcOver),
-            ),
-          ),
+          color: AppColors.nightSurface0,
           child: child,
         );
       },
@@ -112,11 +105,11 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   Color _getColor(String colorStr) {
     switch (colorStr) {
       case 'red': return AppColors.coral;
-      case 'blue': return AppColors.blueBright;
+      case 'blue': return Colors.lightBlueAccent;
       case 'green': return AppColors.green;
       case 'orange': return Colors.orangeAccent;
       case 'purple': return Colors.deepPurpleAccent;
-      case 'black': return AppColors.nightSurface0;
+      case 'black': return Colors.white;
       case 'yellow': return Colors.amber;
       default: return AppColors.nightInk3;
     }
@@ -198,7 +191,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       color: Colors.transparent,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: isSwapped ? [awayCol, Text("-", style: AppText.dispScore(60).copyWith(color: AppColors.nightInk3)), homeCol] : [homeCol, Text("-", style: AppText.dispScore(60).copyWith(color: AppColors.nightInk3)), awayCol],
+        children: isSwapped ? [awayCol, Text("-", style: AppText.dispScore(60).copyWith(color: Colors.white54)), homeCol] : [homeCol, Text("-", style: AppText.dispScore(60).copyWith(color: Colors.white54)), awayCol],
       ),
     );
   }
@@ -209,14 +202,14 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       const SizedBox(height: 5),
       _buildPlayerButton(p2HomeName, p2HomeId, homeTeamName, true, p2HomeImg, 2),
       const SizedBox(height: 5),
-      _buildTeamActionButton("Motstander feil", _getColor(homeColorStr), () => _registerOpponentError(true)),
+      _buildTeamActionButton("Motstander feil", AppColors.coral, () => _registerOpponentError(true)),
     ]));
     Widget awayPlayers = Expanded(child: Column(children: [
       _buildPlayerButton(p1AwayName, p1AwayId, awayTeamName, false, p1AwayImg, 1),
       const SizedBox(height: 5),
       _buildPlayerButton(p2AwayName, p2AwayId, awayTeamName, false, p2AwayImg, 2),
       const SizedBox(height: 5),
-      _buildTeamActionButton("Motstander feil", _getColor(awayColorStr), () => _registerOpponentError(false)),
+      _buildTeamActionButton("Motstander feil", AppColors.coral, () => _registerOpponentError(false)),
     ]));
 
     return Expanded(
@@ -235,8 +228,8 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       child: ElevatedButton.icon(
         onPressed: _undoLastAction,
         icon: const Icon(Icons.undo),
-        label: Text("Angre siste poeng", style: AppText.uiCta),
-        style: ElevatedButton.styleFrom(backgroundColor: AppColors.nightSurface2, foregroundColor: Colors.white),
+        label: Text("Angre siste poeng", style: AppText.uiCta.copyWith(color: AppColors.coral)),
+        style: ElevatedButton.styleFrom(backgroundColor: AppColors.nightSurface2, foregroundColor: AppColors.coral),
       ),
     );
   }
@@ -260,23 +253,23 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
             Expanded(child: Row(
               children: [
                 Expanded(child: Column(children: [
-                  _actionBtn("ANGREP (Kill)", Colors.green, () => _handleKillSelection(name, id, team, isHomeTeam)),
+                  _actionBtn("ANGREP (Kill)", AppColors.coral, () => _handleKillSelection(name, id, team, isHomeTeam)),
                   const SizedBox(height: 10),
-                  _actionBtn("BLOKK POENG", Colors.green, () => _handleBlockSelection(name, id, team, isHomeTeam)),
+                  _actionBtn("BLOKK POENG", AppColors.coral, () => _handleBlockSelection(name, id, team, isHomeTeam)),
                   if (isServer) ...[
                     const SizedBox(height: 10),
-                    _actionBtn("SERVE ESS", Colors.green, () => _handleAceSelection(name, id, team, isHomeTeam, "Ace")),
+                    _actionBtn("SERVE ESS", AppColors.coral, () => _handleAceSelection(name, id, team, isHomeTeam, "Ace")),
                   ],
                 ])),
                 const SizedBox(width: 20),
                 Expanded(child: Column(children: [
-                  _actionBtn("ANGREPSFEIL", Colors.red[300]!, () => _registerStat(name, id, team, isHomeTeam, "Attack Error", false)),
+                  _actionBtn("ANGREPSFEIL", AppColors.nightSurface2, () => _registerStat(name, id, team, isHomeTeam, "Attack Error", false)),
                   if (isServer) ...[
                     const SizedBox(height: 10),
-                    _actionBtn("SERVEFEIL", Colors.red[300]!, () => _registerStat(name, id, team, isHomeTeam, "Service Error", false)),
+                    _actionBtn("SERVEFEIL", AppColors.nightSurface2, () => _registerStat(name, id, team, isHomeTeam, "Service Error", false)),
                   ],
                   const SizedBox(height: 10),
-                  _actionBtn("TEKNISK / NETT", Colors.red[300]!, () => _registerStat(name, id, team, isHomeTeam, "Technical Error", false)),
+                  _actionBtn("TEKNISK / NETT", AppColors.nightSurface2, () => _registerStat(name, id, team, isHomeTeam, "Technical Error", false)),
                 ])),
               ],
             )),
@@ -592,13 +585,13 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   Widget _buildScoreColumn(String team, int score, Color color, int timeouts, bool isHome) {
     return Column(children: [
       Text(team, style: AppText.dispH2(20).copyWith(color: color)),
-      Text("$score", style: AppText.dispScore(80).copyWith(color: color)),
+      Text("$score", style: AppText.dispScoreLight(80)),
       if (timeouts > 0) Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(4)), child: Text("T", style: AppText.uiCta.copyWith(fontSize: 12, color: AppColors.nightInk))),
       const SizedBox(height: 8),
       ElevatedButton(
-        style: ElevatedButton.styleFrom(backgroundColor: color.withOpacity(0.2), foregroundColor: AppColors.nightInk, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
+        style: ElevatedButton.styleFrom(backgroundColor: color.withOpacity(0.2), foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
         onPressed: () => _registerOpponentError(isHome),
-        child: Text("Motstanderfeil", style: AppText.uiCta.copyWith(fontSize: 12, color: AppColors.nightInk)),
+        child: Text("Motstanderfeil", style: AppText.uiCta.copyWith(fontSize: 12, color: Colors.white)),
       ),
     ]);
   }
@@ -657,9 +650,9 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       body: SingleChildScrollView(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         const Text("1. Hvem starter med serven?", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         Row(children: [
-          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: setupServingTeam == 'home' ? Colors.blue : Colors.grey[200]), onPressed: () => setState(() => setupServingTeam = 'home'), child: Text(homeTeamName))),
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: setupServingTeam == 'home' ? AppColors.coral : AppColors.nightSurface2, foregroundColor: Colors.white), onPressed: () => setState(() => setupServingTeam = 'home'), child: Text(homeTeamName))),
           const SizedBox(width: 10),
-          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: setupServingTeam == 'away' ? Colors.red : Colors.grey[200]), onPressed: () => setState(() => setupServingTeam = 'away'), child: Text(awayTeamName))),
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: setupServingTeam == 'away' ? AppColors.coral : AppColors.nightSurface2, foregroundColor: Colors.white), onPressed: () => setState(() => setupServingTeam = 'away'), child: Text(awayTeamName))),
         ]),
         const SizedBox(height: 30),
         const Text("2. Hvem server FØRST for hjemmelaget?", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -671,9 +664,9 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
         const Text("Hvilket lag starter på venstre side?", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Row(children: [
-          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: !setupStartSwapped ? Colors.blue : Colors.grey[200], foregroundColor: !setupStartSwapped ? Colors.white : Colors.black), onPressed: () => setState(() => setupStartSwapped = false), child: Text(homeTeamName))),
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: !setupStartSwapped ? AppColors.blue : AppColors.nightSurface2, foregroundColor: Colors.white), onPressed: () => setState(() => setupStartSwapped = false), child: Text(homeTeamName))),
           const SizedBox(width: 10),
-          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: setupStartSwapped ? Colors.red : Colors.grey[200], foregroundColor: setupStartSwapped ? Colors.white : Colors.black), onPressed: () => setState(() => setupStartSwapped = true), child: Text(awayTeamName))),
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: setupStartSwapped ? AppColors.blue : AppColors.nightSurface2, foregroundColor: Colors.white), onPressed: () => setState(() => setupStartSwapped = true), child: Text(awayTeamName))),
         ]),
         const SizedBox(height: 30),
         Text("Farge $homeTeamName", style: const TextStyle(fontWeight: FontWeight.bold)),
