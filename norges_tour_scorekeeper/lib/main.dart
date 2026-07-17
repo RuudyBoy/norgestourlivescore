@@ -86,6 +86,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   int serverHomeIdx = 1, serverAwayIdx = 1;
   int homeTimeoutsUsed = 0, awayTimeoutsUsed = 0;
   bool techTimeoutTaken = false;
+  bool setWinDialogShowing = false;
 
   int _lastCheckedHome = -1;
   int _lastCheckedAway = -1;
@@ -317,6 +318,10 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       _handleAssistLog(name, team, isHomeTeam, actionType, phase);
     }
     
+    if (actionType != "Ace" && actionType != "Service Error") {
+      _dispatchServeInPlay(phase);
+    }
+    
     // Use pop instead of popUntil to avoid web routing issues
     if (shouldPop && Navigator.canPop(context)) {
       Navigator.pop(context);
@@ -455,6 +460,31 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       'away_score': newAwayScore,
       'set_number': _lastCheckedSet,
     });
+    
+    String phase = pointToHome ? (servingTeam == 'home' ? "Break Point" : "Sideout") : (servingTeam == 'away' ? "Break Point" : "Sideout");
+    _dispatchServeInPlay(phase);
+  }
+
+  void _dispatchServeInPlay(String phase) {
+    String sName = '';
+    String? sId;
+    String sTeam = servingTeam == 'home' ? homeTeamName : awayTeamName;
+    if (servingTeam == 'home') {
+      sName = serverHomeIdx == 1 ? p1HomeName : p2HomeName;
+      sId = serverHomeIdx == 1 ? p1HomeId : p2HomeId;
+    } else {
+      sName = serverAwayIdx == 1 ? p1AwayName : p2AwayName;
+      sId = serverAwayIdx == 1 ? p1AwayId : p2AwayId;
+    }
+    FirebaseFirestore.instance.collection('matches').doc(widget.matchId).collection('events').add({
+      'player_name': sName,
+      'player_id': sId,
+      'team': sTeam,
+      'action': "Serve In Play",
+      'point_to': "none",
+      'phase': phase,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
   }
 
   void _showInfoModal() {
@@ -549,6 +579,8 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   void _undoLastAction() async {
     final events = await FirebaseFirestore.instance.collection('matches').doc(widget.matchId).collection('events').orderBy('timestamp', descending: true).limit(5).get();
     if (events.docs.isNotEmpty) {
+      // Poengtrekk og event-sletting i én batch slik at de skjer atomisk
+      final batch = FirebaseFirestore.instance.batch();
       final lastEvent = events.docs.first;
       final lastTime = (lastEvent.data()['timestamp'] as Timestamp?)?.toDate();
       
@@ -571,12 +603,13 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
               updateData['server_away_idx'] = data['prev_server_away_idx'];
             }
 
-            FirebaseFirestore.instance.collection('matches').doc(widget.matchId).update(updateData);
+            batch.update(FirebaseFirestore.instance.collection('matches').doc(widget.matchId), updateData);
             pointRemoved = true;
           }
-          doc.reference.delete();
+          batch.delete(doc.reference);
         }
       }
+      await batch.commit();
     }
   }
 
@@ -745,10 +778,14 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   }
 
   void _showSetWinDialog(String w, int s, bool isHomeWin, Map<String, dynamic> matchData) {
+    // Nye snapshots kan trigge _checkGameRules mens dialogen står åpen –
+    // vis aldri to sett-dialoger oppå hverandre (dobbel "Neste sett")
+    if (setWinDialogShowing) return;
+    setWinDialogShowing = true;
     bool matchWon = (isHomeWin && homeSets == 1) || (!isHomeWin && awaySets == 1);
     
-    showDialog(context: context, builder: (c) => AlertDialog(
-      title: Text(matchWon ? "$w vant kampen!" : "$w vant sett $s!"), 
+    showDialog(context: context, barrierDismissible: false, builder: (c) => AlertDialog(
+      title: Text(matchWon ? "$w vant kampen!" : "$w vant sett $s!"),
       actions: [
         ElevatedButton(
           onPressed: () { 
@@ -758,7 +795,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
           child: Text(matchWon ? "Avslutt kamp" : "Neste sett")
         )
       ]
-    ));
+    )).then((_) => setWinDialogShowing = false);
   }
 
   void _finishSet(bool isHomeWin, bool matchWon, Map<String, dynamic> matchData) {
