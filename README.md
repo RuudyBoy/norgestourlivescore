@@ -16,7 +16,8 @@ Case study: [cjrportfolio.netlify.app/spikedunk](https://cjrportfolio.netlify.ap
 
 - Åpnes med `?matchId=…` i URL-en, som QR-koden fra admin peker til.
 - Oppsett før kamp: lagfarger og serverekkefølge.
-- Registrerer poeng med hva som skjedde: ess, angrep, blokk, mottak, legg og feil, knyttet til spilleren.
+- Registrerer poeng med årsak, knyttet til spilleren: serveess, angrep, blokk, angrepsfeil, servefeil, teknisk feil/nettfeil og motstanderfeil.
+- Ved ess velger dommeren hvem som bommet på mottaket. Ved angrep logges legget til partneren automatisk, og serven som var i spill logges for serveren.
 - Følger reglene for sandvolleyball: sidebytte hvert 7. poeng (hvert 5. i tredje sett), teknisk timeout ved 21 poeng til sammen i sett 1 og 2, sett til 21 (15 i tredje sett) med to poengs margin.
 - Timeouts, angreknapp og avslutning av sett og kamp.
 
