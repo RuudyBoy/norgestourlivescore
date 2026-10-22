@@ -99,7 +99,7 @@ extension _PointRegistration on _ScoreboardPageState {
       _dispatchServeInPlay(phase);
     }
     
-    // Use pop instead of popUntil to avoid web routing issues
+    // Bruk pop (ikke popUntil) for å unngå problemer med ruting på web
     if (shouldPop && Navigator.canPop(context)) {
       Navigator.pop(context);
     }

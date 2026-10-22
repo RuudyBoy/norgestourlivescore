@@ -32,7 +32,8 @@ Når kampen settes til `finished`, trigges Cloud Function `matchRunner` i admin-
 ```
 norges_tour_scorekeeper/
   lib/
-    main.dart        Landingsside (leser matchId), oppsett og poengtavle
+    main.dart        Oppstart og landingsside (leser matchId fra URL-en)
+    scoreboard/      Poengtavla: oppsett, poengregistrering, regler og byggesteiner
     theme/           Farger, typografi og tema (designsystem)
   web/               Web-oppsett
   firebase.json      Firebase Hosting (spikedunk.web.app)

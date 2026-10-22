@@ -20,31 +20,37 @@ class ScoreboardPage extends StatefulWidget {
 }
 
 class _ScoreboardPageState extends State<ScoreboardPage> {
-  // --- STATE ---
+  // ── Lag og spillere (lest fra kampdokumentet i _initializeData) ──
   String homeTeamName = "Lag A", awayTeamName = "Lag B";
   String p1HomeName = "Hjemme 1", p2HomeName = "Hjemme 2";
   String p1AwayName = "Borte 1", p2AwayName = "Borte 2";
   String? p1HomeId, p2HomeId, p1AwayId, p2AwayId;
   String? p1HomeImg, p2HomeImg, p1AwayImg, p2AwayImg;
 
+  // ── Serve, timeouts og sett ──
   bool isSetupDone = false;
-  String servingTeam = ""; 
+  String servingTeam = "";
   int serverHomeIdx = 1, serverAwayIdx = 1;
   int homeTimeoutsUsed = 0, awayTimeoutsUsed = 0;
   bool techTimeoutTaken = false;
   bool setWinDialogShowing = false;
 
+  // Siste stilling som er sjekket mot reglene (sidebytte, sett ferdig).
   int _lastCheckedHome = -1;
   int _lastCheckedAway = -1;
   int _lastCheckedSet = -1;
+
+  // Vunne sett i kampen.
   int homeSets = 0;
   int awaySets = 0;
 
+  // ── Valg på oppsettskjermen før kampen starter ──
   String? setupServingTeam;
   int setupHomeFirstServer = 1, setupAwayFirstServer = 1;
   String setupHomeColor = 'blue', setupAwayColor = 'red';
   bool setupStartSwapped = false;
 
+  // ── Sidebytte og lagfarger ──
   bool isSwapped = false;
   int lastSwappedScore = -1;
   String homeColorStr = 'blue', awayColorStr = 'red';

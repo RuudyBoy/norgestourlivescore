@@ -89,11 +89,12 @@ extension _MatchRules on _ScoreboardPageState {
         'status': 'finished',
         'home_sets': newHomeSets,
         'away_sets': newAwaySets,
-        'home_score': newHomeSets, // For legacy support i appen
+        'home_score': newHomeSets, // Ferdig kamp: score = antall vunne sett (leses av admin og spillerappen)
         'away_score': newAwaySets,
       });
 
-      // --- GRUPPESPILL PLASSERING ---
+      // Puljeplassering for eldre kamptyper (group_final / group_bronze). Admin lager
+      // i dag group_match_3/4, og da settes plasseringen av matchRunner i admin-repoet.
       String? matchType = matchData['match_type'];
       if (matchType == 'group_final' || matchType == 'group_bronze') {
         String? teamAId = matchData['team_a_id'];

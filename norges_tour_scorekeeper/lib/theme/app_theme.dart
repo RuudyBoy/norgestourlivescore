@@ -8,12 +8,12 @@ import 'app_text_styles.dart';
 class AppTheme {
   AppTheme._();
 
-  // ── Shared shape / radius ─────────────────────────────────────
+  // ── Radier ─────────────────────────────────────
   static const double radiusCard   = 24.0;
   static const double radiusInput  = 16.0;
   static const double radiusButton = 16.0;
 
-  // ── Elevation / shadows ───────────────────────────────────────
+  // ── Skygger ───────────────────────────────────────
   static List<BoxShadow> get shadowSm => [
     BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 16, offset: const Offset(0, 4)),
     BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 3,  offset: const Offset(0, 1)),
@@ -115,7 +115,7 @@ class AppTheme {
     return base;
   }
 
-  // ── shared text theme ─────────────────────────────────────────
+  // ── Tekststiler i temaet ─────────────────────────────────────────
   static TextTheme _textTheme(Color color) => TextTheme(
     displayLarge:  AppText.dispScore(48).copyWith(color: color),
     displayMedium: AppText.dispH1(34).copyWith(color: color),
