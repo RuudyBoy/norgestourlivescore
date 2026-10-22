@@ -4,46 +4,29 @@ import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 import 'app_text_styles.dart';
 
-/// SpikeDunk · Norges Tour — ThemeData
-/// Redesigned with a premium dark-theme look.
+/// SpikeDunk · Norges Tour — ThemeData for dommerappen (bare mørkt tema).
 class AppTheme {
   AppTheme._();
 
   // ── Shared shape / radius ─────────────────────────────────────
-  static const double radiusCard   = 24.0; // Larger for a softer, premium feel
-  static const double radiusRow    = 16.0;
-  static const double radiusChip   = 999.0; // pill
+  static const double radiusCard   = 24.0;
   static const double radiusInput  = 16.0;
   static const double radiusButton = 16.0;
-  static const double radiusBadge  = 8.0;
 
   // ── Elevation / shadows ───────────────────────────────────────
   static List<BoxShadow> get shadowSm => [
-    BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 16, offset: const Offset(0, 4)),
-    BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 3,  offset: const Offset(0, 1)),
+    BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 16, offset: const Offset(0, 4)),
+    BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 3,  offset: const Offset(0, 1)),
   ];
-  static List<BoxShadow> get shadowLg => [
-    BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 40, offset: const Offset(0, 16)),
-    BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 12, offset: const Offset(0, 4)),
-  ];
-  static List<BoxShadow> get shadowCoral => [
-    BoxShadow(color: AppColors.coral.withOpacity(0.40), blurRadius: 20, offset: const Offset(0, 8)),
-  ];
-
-  // ── Spacing ───────────────────────────────────────────────────
-  static const double pageHPad    = 16.0;
-  static const double sectionGap  = 24.0;
-  static const double rowGap      = 9.0;
-  static const double cardPad     = 15.0;
 
   // ══════════════════════════════════════════════════════════════
-  // DARK THEME (Premium Night mode)
+  // MØRKT TEMA
   // ══════════════════════════════════════════════════════════════
   static ThemeData get dark {
     final base = ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      scaffoldBackgroundColor: AppColors.nightSurface0, // Use the new deep background
+      scaffoldBackgroundColor: AppColors.nightSurface0,
       primaryColor: AppColors.coral,
       colorScheme: ColorScheme.dark(
         primary:        AppColors.coral,
@@ -51,10 +34,10 @@ class AppTheme {
         surface:        AppColors.nightSurface1,
         onPrimary:      Colors.white,
         onSurface:      AppColors.nightInk,
-        outline:        Colors.white.withOpacity(0.05),
+        outline:        Colors.white.withValues(alpha: 0.05),
       ),
       textTheme: _textTheme(AppColors.nightInk),
-      fontFamily: GoogleFonts.inter().fontFamily ?? GoogleFonts.schibstedGrotesk().fontFamily, // Inter for a cleaner modern look if available
+      fontFamily: GoogleFonts.inter().fontFamily ?? GoogleFonts.schibstedGrotesk().fontFamily,
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         foregroundColor: AppColors.nightInk,
@@ -64,7 +47,7 @@ class AppTheme {
         titleTextStyle: AppText.dispH2(20).copyWith(color: AppColors.nightInk, fontWeight: FontWeight.w700),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: AppColors.nightSurface1.withOpacity(0.95),
+        backgroundColor: AppColors.nightSurface1.withValues(alpha: 0.95),
         selectedItemColor: AppColors.coral,
         unselectedItemColor: AppColors.nightInk3,
         type: BottomNavigationBarType.fixed,
@@ -80,7 +63,7 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.coral,
           foregroundColor: Colors.white,
-          minimumSize: const Size.fromHeight(56), // slightly taller for better tap targets
+          minimumSize: const Size.fromHeight(56),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusButton)),
           textStyle: AppText.uiCta.copyWith(fontWeight: FontWeight.w700),
           elevation: 0,
@@ -91,7 +74,7 @@ class AppTheme {
           foregroundColor: AppColors.nightInk,
           minimumSize: const Size.fromHeight(56),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusButton)),
-          side: BorderSide(color: Colors.white.withOpacity(0.15)),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
           textStyle: AppText.uiCta.copyWith(color: AppColors.nightInk, fontWeight: FontWeight.w700),
         ),
       ),
@@ -101,11 +84,11 @@ class AppTheme {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusInput),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.05)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusInput),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.05)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusInput),
@@ -114,7 +97,7 @@ class AppTheme {
         hintStyle: AppText.uiBody.copyWith(color: AppColors.nightInk3),
       ),
       dividerTheme: DividerThemeData(
-        color: Colors.white.withOpacity(0.05), thickness: 1, space: 0,
+        color: Colors.white.withValues(alpha: 0.05), thickness: 1, space: 0,
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: AppColors.nightSurface1,
@@ -132,9 +115,6 @@ class AppTheme {
     return base;
   }
 
-  // NOTE: Light theme is preserved for reference but the app will force dark mode
-  static ThemeData get light => dark; // Forces dark theme
-
   // ── shared text theme ─────────────────────────────────────────
   static TextTheme _textTheme(Color color) => TextTheme(
     displayLarge:  AppText.dispScore(48).copyWith(color: color),
@@ -148,7 +128,7 @@ class AppTheme {
     titleSmall:    AppText.uiTitle.copyWith(fontSize: 14, color: color),
     bodyLarge:     AppText.uiBody.copyWith(fontSize: 16, color: color),
     bodyMedium:    AppText.uiBody.copyWith(color: color),
-    bodySmall:     AppText.uiCaption.copyWith(color: color.withOpacity(0.7)),
+    bodySmall:     AppText.uiCaption.copyWith(color: color.withValues(alpha: 0.7)),
     labelLarge:    AppText.uiCta.copyWith(color: color),
     labelMedium:   AppText.monoMd.copyWith(color: color),
     labelSmall:    AppText.monoSm.copyWith(color: color),

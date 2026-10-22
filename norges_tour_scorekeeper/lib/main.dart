@@ -230,7 +230,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
         onPressed: _undoLastAction,
         icon: const Icon(Icons.undo, size: 20),
         label: const Text("Angre siste poeng"),
-        style: OutlinedButton.styleFrom(foregroundColor: AppColors.nightInk2, side: BorderSide(color: AppColors.nightInk2.withOpacity(0.3))),
+        style: OutlinedButton.styleFrom(foregroundColor: AppColors.nightInk2, side: BorderSide(color: AppColors.nightInk2.withValues(alpha: 0.3))),
       ),
     );
   }
@@ -635,7 +635,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       decoration: BoxDecoration(
         color: AppColors.nightSurface1,
         borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(color: color.withOpacity(0.2), width: 1.5),
+        border: Border.all(color: color.withValues(alpha: 0.2), width: 1.5),
         boxShadow: AppTheme.shadowSm,
       ),
       child: Column(children: [
@@ -658,7 +658,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusButton), 
-          side: BorderSide(color: isServing ? teamColor : Colors.white.withOpacity(0.05), width: isServing ? 2 : 1)
+          side: BorderSide(color: isServing ? teamColor : Colors.white.withValues(alpha: 0.05), width: isServing ? 2 : 1)
         ),
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       ),
@@ -668,7 +668,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
           Container(
             decoration: BoxDecoration(
                shape: BoxShape.circle,
-               boxShadow: isServing ? [BoxShadow(color: teamColor.withOpacity(0.5), blurRadius: 12)] : null,
+               boxShadow: isServing ? [BoxShadow(color: teamColor.withValues(alpha: 0.5), blurRadius: 12)] : null,
             ),
             child: CircleAvatar(radius: 24, backgroundColor: AppColors.nightSurface2, backgroundImage: (imageUrl != null && imageUrl.isNotEmpty) ? NetworkImage(imageUrl) : null, child: (imageUrl == null || imageUrl.isEmpty) ? Icon(Icons.person, color: AppColors.nightInk3) : null),
           ),
@@ -697,7 +697,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     return SizedBox(width: double.infinity, child: OutlinedButton(
       style: OutlinedButton.styleFrom(
         foregroundColor: color,
-        side: BorderSide(color: color.withOpacity(0.3)),
+        side: BorderSide(color: color.withValues(alpha: 0.3)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusButton)),
         padding: const EdgeInsets.symmetric(vertical: 14),
       ),
@@ -716,9 +716,9 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
         Text("1. Hvem starter med serven?", style: AppText.uiTitle.copyWith(fontSize: 16, color: AppColors.nightInk2)),
         const SizedBox(height: 12),
         Row(children: [
-          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: setupServingTeam == 'home' ? AppColors.coral : AppColors.nightSurface1, foregroundColor: Colors.white, elevation: setupServingTeam == 'home' ? 8 : 0, shadowColor: AppColors.coral.withOpacity(0.5)), onPressed: () => setState(() => setupServingTeam = 'home'), child: Text(homeTeamName, maxLines: 1, overflow: TextOverflow.ellipsis))),
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: setupServingTeam == 'home' ? AppColors.coral : AppColors.nightSurface1, foregroundColor: Colors.white, elevation: setupServingTeam == 'home' ? 8 : 0, shadowColor: AppColors.coral.withValues(alpha: 0.5)), onPressed: () => setState(() => setupServingTeam = 'home'), child: Text(homeTeamName, maxLines: 1, overflow: TextOverflow.ellipsis))),
           const SizedBox(width: 12),
-          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: setupServingTeam == 'away' ? AppColors.coral : AppColors.nightSurface1, foregroundColor: Colors.white, elevation: setupServingTeam == 'away' ? 8 : 0, shadowColor: AppColors.coral.withOpacity(0.5)), onPressed: () => setState(() => setupServingTeam = 'away'), child: Text(awayTeamName, maxLines: 1, overflow: TextOverflow.ellipsis))),
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: setupServingTeam == 'away' ? AppColors.coral : AppColors.nightSurface1, foregroundColor: Colors.white, elevation: setupServingTeam == 'away' ? 8 : 0, shadowColor: AppColors.coral.withValues(alpha: 0.5)), onPressed: () => setState(() => setupServingTeam = 'away'), child: Text(awayTeamName, maxLines: 1, overflow: TextOverflow.ellipsis))),
         ]),
         const SizedBox(height: 32),
         Text("2. Første server (Hjemme)", style: AppText.uiTitle.copyWith(fontSize: 16, color: AppColors.nightInk2)),
@@ -732,9 +732,9 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
         Text("Lag på venstre side", style: AppText.uiTitle.copyWith(fontSize: 16, color: AppColors.nightInk2)),
         const SizedBox(height: 12),
         Row(children: [
-          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: !setupStartSwapped ? AppColors.blue : AppColors.nightSurface1, foregroundColor: Colors.white, elevation: !setupStartSwapped ? 8 : 0, shadowColor: AppColors.blue.withOpacity(0.5)), onPressed: () => setState(() => setupStartSwapped = false), child: Text(homeTeamName, maxLines: 1, overflow: TextOverflow.ellipsis))),
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: !setupStartSwapped ? AppColors.blue : AppColors.nightSurface1, foregroundColor: Colors.white, elevation: !setupStartSwapped ? 8 : 0, shadowColor: AppColors.blue.withValues(alpha: 0.5)), onPressed: () => setState(() => setupStartSwapped = false), child: Text(homeTeamName, maxLines: 1, overflow: TextOverflow.ellipsis))),
           const SizedBox(width: 12),
-          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: setupStartSwapped ? AppColors.blue : AppColors.nightSurface1, foregroundColor: Colors.white, elevation: setupStartSwapped ? 8 : 0, shadowColor: AppColors.blue.withOpacity(0.5)), onPressed: () => setState(() => setupStartSwapped = true), child: Text(awayTeamName, maxLines: 1, overflow: TextOverflow.ellipsis))),
+          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: setupStartSwapped ? AppColors.blue : AppColors.nightSurface1, foregroundColor: Colors.white, elevation: setupStartSwapped ? 8 : 0, shadowColor: AppColors.blue.withValues(alpha: 0.5)), onPressed: () => setState(() => setupStartSwapped = true), child: Text(awayTeamName, maxLines: 1, overflow: TextOverflow.ellipsis))),
         ]),
         const SizedBox(height: 32),
         Text("Farge $homeTeamName", style: AppText.uiTitle.copyWith(fontSize: 16, color: AppColors.nightInk2)),
@@ -890,6 +890,4 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
 
     batch.commit();
   }
-
-  void _showSideSwitchDialog(String m) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.orange));
 }
