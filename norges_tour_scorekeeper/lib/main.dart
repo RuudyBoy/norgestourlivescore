@@ -103,6 +103,17 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   int lastSwappedScore = -1;
   String homeColorStr = 'blue', awayColorStr = 'red';
 
+  DocumentReference<Map<String, dynamic>> get _matchRef =>
+      FirebaseFirestore.instance.collection('matches').doc(widget.matchId);
+
+  /// Hver handling i kampen lagres som et eget dokument her.
+  CollectionReference<Map<String, dynamic>> get _events => _matchRef.collection('events');
+
+  /// Om spiller [playerIdx] (1 eller 2) på laget har serven nå.
+  bool _isServing(bool isHomeTeam, int playerIdx) =>
+      (isHomeTeam && servingTeam == 'home' && serverHomeIdx == playerIdx) ||
+      (!isHomeTeam && servingTeam == 'away' && serverAwayIdx == playerIdx);
+
   Color _getColor(String colorStr) {
     switch (colorStr) {
       case 'red': return AppColors.coral;
@@ -119,7 +130,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('matches').doc(widget.matchId).snapshots(),
+      stream: _matchRef.snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(child: Text("Feil: ${snapshot.error}", style: const TextStyle(color: Colors.white)));
@@ -161,7 +172,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
               ],
             ),
             centerTitle: true,
-            leading: IconButton(icon: const Icon(Icons.swap_horiz), onPressed: () => FirebaseFirestore.instance.collection('matches').doc(widget.matchId).update({'is_swapped': !isSwapped})),
+            leading: IconButton(icon: const Icon(Icons.swap_horiz), onPressed: () => _matchRef.update({'is_swapped': !isSwapped})),
             actions: [
               IconButton(icon: const Icon(Icons.info_outline), onPressed: _showInfoModal),
               IconButton(icon: const Icon(Icons.timer), color: _getColor(homeColorStr), onPressed: homeTimeoutsUsed == 0 ? () => _takeTimeout(true) : null),
@@ -188,30 +199,35 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     Widget homeCol = _buildScoreColumn(homeTeamName, homeScore, _getColor(homeColorStr), homeTimeoutsUsed, true);
     Widget awayCol = _buildScoreColumn(awayTeamName, awayScore, _getColor(awayColorStr), awayTimeoutsUsed, false);
 
+    final separator = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Text(":", style: AppText.dispScore(40).copyWith(color: AppColors.nightInk3)),
+    );
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: isSwapped ? [awayCol, Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text(":", style: AppText.dispScore(40).copyWith(color: AppColors.nightInk3))), homeCol] : [homeCol, Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text(":", style: AppText.dispScore(40).copyWith(color: AppColors.nightInk3))), awayCol],
+        children: isSwapped ? [awayCol, separator, homeCol] : [homeCol, separator, awayCol],
       ),
     );
   }
 
   Widget _buildPlayerArea() {
-    Widget homePlayers = Expanded(child: Column(children: [
-      _buildPlayerButton(p1HomeName, p1HomeId, homeTeamName, true, p1HomeImg, 1),
-      const SizedBox(height: 10),
-      _buildPlayerButton(p2HomeName, p2HomeId, homeTeamName, true, p2HomeImg, 2),
-      const SizedBox(height: 10),
-      _buildTeamActionButton("Motstander feil", _getColor(homeColorStr), () => _registerOpponentError(true)),
-    ]));
-    Widget awayPlayers = Expanded(child: Column(children: [
-      _buildPlayerButton(p1AwayName, p1AwayId, awayTeamName, false, p1AwayImg, 1),
-      const SizedBox(height: 10),
-      _buildPlayerButton(p2AwayName, p2AwayId, awayTeamName, false, p2AwayImg, 2),
-      const SizedBox(height: 10),
-      _buildTeamActionButton("Motstander feil", _getColor(awayColorStr), () => _registerOpponentError(false)),
-    ]));
+    // To spillerknapper og «Motstander feil» for ett lag.
+    Widget teamColumn(bool isHome) {
+      final team = isHome ? homeTeamName : awayTeamName;
+      return Expanded(child: Column(children: [
+        _buildPlayerButton(isHome ? p1HomeName : p1AwayName, isHome ? p1HomeId : p1AwayId, team, isHome, isHome ? p1HomeImg : p1AwayImg, 1),
+        const SizedBox(height: 10),
+        _buildPlayerButton(isHome ? p2HomeName : p2AwayName, isHome ? p2HomeId : p2AwayId, team, isHome, isHome ? p2HomeImg : p2AwayImg, 2),
+        const SizedBox(height: 10),
+        _buildTeamActionButton("Motstander feil", _getColor(isHome ? homeColorStr : awayColorStr), () => _registerOpponentError(isHome)),
+      ]));
+    }
+
+    final homePlayers = teamColumn(true);
+    final awayPlayers = teamColumn(false);
 
     return Expanded(
       child: Padding(
@@ -238,8 +254,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   // --- STATS OG LOGIKK ---
 
   void _showActionSheet(String name, String? id, String team, bool isHomeTeam, int playerIdx) {
-    bool isServer = (isHomeTeam && servingTeam == 'home' && serverHomeIdx == playerIdx) ||
-                    (!isHomeTeam && servingTeam == 'away' && serverAwayIdx == playerIdx);
+    final isServer = _isServing(isHomeTeam, playerIdx);
 
     showModalBottomSheet(
       context: context,
@@ -290,15 +305,15 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
 
   void _registerStat(String name, String? id, String team, bool isHomeTeam, String actionType, bool isPositive, {String? subType, bool shouldPop = true, Map<String, dynamic>? extraData}) {
     bool pointToHome = isPositive ? isHomeTeam : !isHomeTeam;
-    String phase = servingTeam == (pointToHome ? (isHomeTeam ? 'home' : 'away') : (isHomeTeam ? 'away' : 'home')) ? "Break Point" : "Sideout";
-    
-    // Spesialhåndtering av fase før rotasjon:
+
+    // Fasen regnes ut fra hvem som serverte FØR poenget: vinner laget som
+    // serverte, er det «Break Point», ellers «Sideout».
     bool wasHomeServing = servingTeam == 'home';
-    phase = pointToHome ? (wasHomeServing ? "Break Point" : "Sideout") : (!wasHomeServing ? "Break Point" : "Sideout");
+    final phase = pointToHome ? (wasHomeServing ? "Break Point" : "Sideout") : (!wasHomeServing ? "Break Point" : "Sideout");
 
     _updateServeLogic(pointToHome);
 
-    FirebaseFirestore.instance.collection('matches').doc(widget.matchId).update({
+    _matchRef.update({
       pointToHome ? 'home_score' : 'away_score': FieldValue.increment(1),
     });
 
@@ -324,7 +339,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     if (extraData != null) {
       eventData.addAll(extraData);
     }
-    FirebaseFirestore.instance.collection('matches').doc(widget.matchId).collection('events').add(eventData);
+    _events.add(eventData);
 
     if (actionType == "Kill" || actionType == "Attack Error") {
       _handleAssistLog(name, team, isHomeTeam, actionType, phase);
@@ -340,36 +355,50 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     }
   }
 
-  void _handleAceSelection(String sName, String? sId, String sTeam, bool isHome, String serveType) {
-    String r1Name = isHome ? p1AwayName : p1HomeName;
-    String r2Name = isHome ? p2AwayName : p2HomeName;
-    String? r1Id = isHome ? p1AwayId : p1HomeId;
-    String? r2Id = isHome ? p2AwayId : p2HomeId;
-    String rTeam = isHome ? awayTeamName : homeTeamName;
+  /// Spillerne og navnet på laget som står mot [isHome]-laget.
+  ({String p1Name, String? p1Id, String p2Name, String? p2Id, String team}) _opponentsOf(bool isHome) => (
+        p1Name: isHome ? p1AwayName : p1HomeName,
+        p1Id: isHome ? p1AwayId : p1HomeId,
+        p2Name: isHome ? p2AwayName : p2HomeName,
+        p2Id: isHome ? p2AwayId : p2HomeId,
+        team: isHome ? awayTeamName : homeTeamName,
+      );
 
+  /// Dialog med én knapp per valg og «Avbryt / Tilbake» nederst.
+  /// Hvert valg får dialogens context, slik at det kan lukke dialogen selv.
+  void _showChoiceDialog(String title, List<(String, void Function(BuildContext dialogContext))> choices) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Hvem bommet på mottak?"),
+      builder: (c) => AlertDialog(
+        title: Text(title),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ElevatedButton(onPressed: () => _registerAceComplex(sName, sId, sTeam, isHome, r1Name, r1Id, rTeam, serveType), child: Text(r1Name)),
-            const SizedBox(height: 10),
-            ElevatedButton(onPressed: () => _registerAceComplex(sName, sId, sTeam, isHome, r2Name, r2Id, rTeam, serveType), child: Text(r2Name)),
+            for (var i = 0; i < choices.length; i++) ...[
+              if (i > 0) const SizedBox(height: 10),
+              ElevatedButton(onPressed: () => choices[i].$2(c), child: Text(choices[i].$1)),
+            ],
             const SizedBox(height: 20),
-            TextButton(onPressed: () { if (Navigator.canPop(context)) Navigator.pop(context); }, child: const Text("Avbryt / Tilbake")),
+            TextButton(onPressed: () { if (Navigator.canPop(c)) Navigator.pop(c); }, child: const Text("Avbryt / Tilbake")),
           ],
         ),
       ),
     );
   }
 
+  void _handleAceSelection(String sName, String? sId, String sTeam, bool isHome, String serveType) {
+    final opp = _opponentsOf(isHome);
+    _showChoiceDialog("Hvem bommet på mottak?", [
+      (opp.p1Name, (_) => _registerAceComplex(sName, sId, sTeam, isHome, opp.p1Name, opp.p1Id, opp.team, serveType)),
+      (opp.p2Name, (_) => _registerAceComplex(sName, sId, sTeam, isHome, opp.p2Name, opp.p2Id, opp.team, serveType)),
+    ]);
+  }
+
   void _registerAceComplex(String sName, String? sId, String sTeam, bool isHome, String vName, String? vId, String vTeam, String serveType) {
     if (Navigator.canPop(context)) Navigator.pop(context); // Lukk dialog
     _registerStat(sName, sId, sTeam, isHome, "Ace", true, subType: serveType, shouldPop: false, extraData: {'victim_name': vName});
-    FirebaseFirestore.instance.collection('matches').doc(widget.matchId).collection('events').add({
+    _events.add({
       'player_name': vName, 'player_id': vId, 'team': vTeam,
       'action': "Reception Error", 'sub_type': serveType, 'point_to': "none",
       'timestamp': FieldValue.serverTimestamp(),
@@ -380,28 +409,12 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   void _handleKillSelection(String name, String? id, String team, bool isHomeTeam) {
     if (Navigator.canPop(context)) Navigator.pop(context); // Lukk Action Sheet
     bool isReceiving = (isHomeTeam && servingTeam == 'away') || (!isHomeTeam && servingTeam == 'home');
-    
-    showDialog(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: const Text("Hvor kom angrepet fra?"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ElevatedButton(onPressed: () => _registerKill(name, id, team, isHomeTeam, "Forsvar", c), child: const Text("Forsvar")),
-            const SizedBox(height: 10),
-            ElevatedButton(onPressed: () => _registerKill(name, id, team, isHomeTeam, "Blokktrekk", c), child: const Text("Blokktrekk")),
-            if (isReceiving) ...[
-              const SizedBox(height: 10),
-              ElevatedButton(onPressed: () => _registerKill(name, id, team, isHomeTeam, "Sideout", c), child: const Text("Sideout")),
-            ],
-            const SizedBox(height: 20),
-            TextButton(onPressed: () { if (Navigator.canPop(c)) Navigator.pop(c); }, child: const Text("Avbryt / Tilbake")),
-          ],
-        ),
-      ),
-    );
+
+    _showChoiceDialog("Hvor kom angrepet fra?", [
+      ("Forsvar", (c) => _registerKill(name, id, team, isHomeTeam, "Forsvar", c)),
+      ("Blokktrekk", (c) => _registerKill(name, id, team, isHomeTeam, "Blokktrekk", c)),
+      if (isReceiving) ("Sideout", (c) => _registerKill(name, id, team, isHomeTeam, "Sideout", c)),
+    ]);
   }
 
   void _registerKill(String name, String? id, String team, bool isHomeTeam, String origin, BuildContext dialogContext) {
@@ -411,35 +424,17 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
 
   void _handleBlockSelection(String name, String? id, String team, bool isHomeTeam) {
     if (Navigator.canPop(context)) Navigator.pop(context); // Lukk Action Sheet
-    String oppP1 = isHomeTeam ? p1AwayName : p1HomeName;
-    String oppP2 = isHomeTeam ? p2AwayName : p2HomeName;
-    String? oppId1 = isHomeTeam ? p1AwayId : p1HomeId;
-    String? oppId2 = isHomeTeam ? p2AwayId : p2HomeId;
-    String oppTeam = isHomeTeam ? awayTeamName : homeTeamName;
-
-    showDialog(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: const Text("Hvem ble blokkert?"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ElevatedButton(onPressed: () => _registerBlock(name, id, team, isHomeTeam, oppP1, oppId1, oppTeam, c), child: Text(oppP1)),
-            const SizedBox(height: 10),
-            ElevatedButton(onPressed: () => _registerBlock(name, id, team, isHomeTeam, oppP2, oppId2, oppTeam, c), child: Text(oppP2)),
-            const SizedBox(height: 20),
-            TextButton(onPressed: () { if (Navigator.canPop(c)) Navigator.pop(c); }, child: const Text("Avbryt / Tilbake")),
-          ],
-        ),
-      ),
-    );
+    final opp = _opponentsOf(isHomeTeam);
+    _showChoiceDialog("Hvem ble blokkert?", [
+      (opp.p1Name, (c) => _registerBlock(name, id, team, isHomeTeam, opp.p1Name, opp.p1Id, opp.team, c)),
+      (opp.p2Name, (c) => _registerBlock(name, id, team, isHomeTeam, opp.p2Name, opp.p2Id, opp.team, c)),
+    ]);
   }
 
   void _registerBlock(String name, String? id, String team, bool isHomeTeam, String oppName, String? oppId, String oppTeam, BuildContext dialogContext) {
     if (Navigator.canPop(dialogContext)) Navigator.pop(dialogContext);
     _registerStat(name, id, team, isHomeTeam, "Block", true, shouldPop: false, extraData: {'victim_name': oppName});
-    FirebaseFirestore.instance.collection('matches').doc(widget.matchId).collection('events').add({
+    _events.add({
       'player_name': oppName,
       'player_id': oppId,
       'team': oppTeam,
@@ -449,17 +444,17 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       'is_block': true,
     });
   }
-  
+
   void _registerOpponentError(bool pointToHome) {
     String teamName = pointToHome ? homeTeamName : awayTeamName;
     _updateServeLogic(pointToHome);
-    FirebaseFirestore.instance.collection('matches').doc(widget.matchId).update({
+    _matchRef.update({
       pointToHome ? 'home_score' : 'away_score': FieldValue.increment(1),
     });
     int newHomeScore = _lastCheckedHome + (pointToHome ? 1 : 0);
     int newAwayScore = _lastCheckedAway + (!pointToHome ? 1 : 0);
 
-    FirebaseFirestore.instance.collection('matches').doc(widget.matchId).collection('events').add({
+    _events.add({
       'player_name': "Lag",
       'player_id': null,
       'team': teamName,
@@ -490,7 +485,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       sName = serverAwayIdx == 1 ? p1AwayName : p2AwayName;
       sId = serverAwayIdx == 1 ? p1AwayId : p2AwayId;
     }
-    FirebaseFirestore.instance.collection('matches').doc(widget.matchId).collection('events').add({
+    _events.add({
       'player_name': sName,
       'player_id': sId,
       'team': sTeam,
@@ -567,7 +562,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       nextServerHomeIdx = (serverHomeIdx == 1) ? 2 : 1;
     }
 
-    FirebaseFirestore.instance.collection('matches').doc(widget.matchId).update({
+    _matchRef.update({
       'serving_team': nextServingTeam,
       'server_home_idx': nextServerHomeIdx,
       'server_away_idx': nextServerAwayIdx,
@@ -579,19 +574,19 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     String? partnerId = isHomeTeam ? (name == p1HomeName ? p2HomeId : p1HomeId) : (name == p1AwayName ? p2AwayId : p1AwayId);
 
     if (actionType == "Kill") {
-      FirebaseFirestore.instance.collection('matches').doc(widget.matchId).collection('events').add({
+      _events.add({
         'player_name': partnerName, 'player_id': partnerId, 'team': team,
         'action': "Set Assist", 'point_to': "none", 'phase': phase, 'timestamp': FieldValue.serverTimestamp(),
       });
     }
-    FirebaseFirestore.instance.collection('matches').doc(widget.matchId).collection('events').add({
+    _events.add({
       'player_name': partnerName, 'player_id': partnerId, 'team': team,
       'action': "Set Attempt", 'point_to': "none", 'phase': phase, 'timestamp': FieldValue.serverTimestamp(),
     });
   }
 
   void _undoLastAction() async {
-    final events = await FirebaseFirestore.instance.collection('matches').doc(widget.matchId).collection('events').orderBy('timestamp', descending: true).limit(5).get();
+    final events = await _events.orderBy('timestamp', descending: true).limit(5).get();
     if (events.docs.isNotEmpty) {
       // Poengtrekk og event-sletting i én batch slik at de skjer atomisk
       final batch = FirebaseFirestore.instance.batch();
@@ -617,7 +612,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
               updateData['server_away_idx'] = data['prev_server_away_idx'];
             }
 
-            batch.update(FirebaseFirestore.instance.collection('matches').doc(widget.matchId), updateData);
+            batch.update(_matchRef, updateData);
             pointRemoved = true;
           }
           batch.delete(doc.reference);
@@ -648,7 +643,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   }
 
   Widget _buildPlayerButton(String name, String? id, String team, bool isHomeTeam, String? imageUrl, int playerIdx) {
-    bool isServing = (isHomeTeam && servingTeam == 'home' && serverHomeIdx == playerIdx) || (!isHomeTeam && servingTeam == 'away' && serverAwayIdx == playerIdx);
+    final isServing = _isServing(isHomeTeam, playerIdx);
     Color teamColor = isHomeTeam ? _getColor(homeColorStr) : _getColor(awayColorStr);
     
     return Expanded(child: SizedBox(width: double.infinity, child: ElevatedButton(
@@ -709,39 +704,64 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   // --- SETUP OG REGLER ---
 
   Widget _buildSetupScreen() {
+    // Overskrift over hvert valg i oppsettet.
+    Widget heading(String text) =>
+        Text(text, style: AppText.uiTitle.copyWith(fontSize: 16, color: AppColors.nightInk2));
+
+    // To knapper side om side der den valgte lyser opp i [color].
+    Widget choiceRow(Color color, bool homeSelected, bool awaySelected, VoidCallback onHome, VoidCallback onAway) {
+      Widget choice(String label, bool selected, VoidCallback onPressed) => Expanded(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: selected ? color : AppColors.nightSurface1,
+                foregroundColor: Colors.white,
+                elevation: selected ? 8 : 0,
+                shadowColor: color.withValues(alpha: 0.5),
+              ),
+              onPressed: onPressed,
+              child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+          );
+      return Row(children: [
+        choice(homeTeamName, homeSelected, onHome),
+        const SizedBox(width: 12),
+        choice(awayTeamName, awaySelected, onAway),
+      ]);
+    }
+
+    // Velger for hvem av de to spillerne som server først.
+    Widget serverBox(String p1, String p2, int current, ValueChanged<int> onSelected) => Container(
+          decoration: BoxDecoration(color: AppColors.nightSurface1, borderRadius: BorderRadius.circular(16)),
+          child: _buildServerSelector(p1, p2, current, onSelected),
+        );
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text("Kampoppsett")),
       body: SingleChildScrollView(padding: const EdgeInsets.all(24), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text("1. Hvem starter med serven?", style: AppText.uiTitle.copyWith(fontSize: 16, color: AppColors.nightInk2)),
+        heading("1. Hvem starter med serven?"),
         const SizedBox(height: 12),
-        Row(children: [
-          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: setupServingTeam == 'home' ? AppColors.coral : AppColors.nightSurface1, foregroundColor: Colors.white, elevation: setupServingTeam == 'home' ? 8 : 0, shadowColor: AppColors.coral.withValues(alpha: 0.5)), onPressed: () => setState(() => setupServingTeam = 'home'), child: Text(homeTeamName, maxLines: 1, overflow: TextOverflow.ellipsis))),
-          const SizedBox(width: 12),
-          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: setupServingTeam == 'away' ? AppColors.coral : AppColors.nightSurface1, foregroundColor: Colors.white, elevation: setupServingTeam == 'away' ? 8 : 0, shadowColor: AppColors.coral.withValues(alpha: 0.5)), onPressed: () => setState(() => setupServingTeam = 'away'), child: Text(awayTeamName, maxLines: 1, overflow: TextOverflow.ellipsis))),
-        ]),
+        choiceRow(AppColors.coral, setupServingTeam == 'home', setupServingTeam == 'away',
+            () => setState(() => setupServingTeam = 'home'), () => setState(() => setupServingTeam = 'away')),
         const SizedBox(height: 32),
-        Text("2. Første server (Hjemme)", style: AppText.uiTitle.copyWith(fontSize: 16, color: AppColors.nightInk2)),
+        heading("2. Første server (Hjemme)"),
         const SizedBox(height: 8),
-        Container(decoration: BoxDecoration(color: AppColors.nightSurface1, borderRadius: BorderRadius.circular(16)), child: _buildServerSelector(p1HomeName, p2HomeName, setupHomeFirstServer, (val) => setState(() => setupHomeFirstServer = val))),
+        serverBox(p1HomeName, p2HomeName, setupHomeFirstServer, (val) => setState(() => setupHomeFirstServer = val)),
         const SizedBox(height: 24),
-        Text("3. Første server (Borte)", style: AppText.uiTitle.copyWith(fontSize: 16, color: AppColors.nightInk2)),
+        heading("3. Første server (Borte)"),
         const SizedBox(height: 8),
-        Container(decoration: BoxDecoration(color: AppColors.nightSurface1, borderRadius: BorderRadius.circular(16)), child: _buildServerSelector(p1AwayName, p2AwayName, setupAwayFirstServer, (val) => setState(() => setupAwayFirstServer = val))),
+        serverBox(p1AwayName, p2AwayName, setupAwayFirstServer, (val) => setState(() => setupAwayFirstServer = val)),
         const SizedBox(height: 32),
-        Text("Lag på venstre side", style: AppText.uiTitle.copyWith(fontSize: 16, color: AppColors.nightInk2)),
+        heading("Lag på venstre side"),
         const SizedBox(height: 12),
-        Row(children: [
-          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: !setupStartSwapped ? AppColors.blue : AppColors.nightSurface1, foregroundColor: Colors.white, elevation: !setupStartSwapped ? 8 : 0, shadowColor: AppColors.blue.withValues(alpha: 0.5)), onPressed: () => setState(() => setupStartSwapped = false), child: Text(homeTeamName, maxLines: 1, overflow: TextOverflow.ellipsis))),
-          const SizedBox(width: 12),
-          Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: setupStartSwapped ? AppColors.blue : AppColors.nightSurface1, foregroundColor: Colors.white, elevation: setupStartSwapped ? 8 : 0, shadowColor: AppColors.blue.withValues(alpha: 0.5)), onPressed: () => setState(() => setupStartSwapped = true), child: Text(awayTeamName, maxLines: 1, overflow: TextOverflow.ellipsis))),
-        ]),
+        choiceRow(AppColors.blue, !setupStartSwapped, setupStartSwapped,
+            () => setState(() => setupStartSwapped = false), () => setState(() => setupStartSwapped = true)),
         const SizedBox(height: 32),
-        Text("Farge $homeTeamName", style: AppText.uiTitle.copyWith(fontSize: 16, color: AppColors.nightInk2)),
+        heading("Farge $homeTeamName"),
         const SizedBox(height: 12),
         _buildColorPicker(setupHomeColor, (c) => setState(() => setupHomeColor = c)),
         const SizedBox(height: 24),
-        Text("Farge $awayTeamName", style: AppText.uiTitle.copyWith(fontSize: 16, color: AppColors.nightInk2)),
+        heading("Farge $awayTeamName"),
         const SizedBox(height: 12),
         _buildColorPicker(setupAwayColor, (c) => setState(() => setupAwayColor = c)),
         const SizedBox(height: 48),
@@ -783,7 +803,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     } else {
       fAway = (fAway == 1) ? 2 : 1;
     }
-    FirebaseFirestore.instance.collection('matches').doc(widget.matchId).update({
+    _matchRef.update({
       'serving_team': setupServingTeam, 'server_home_idx': fHome, 'server_away_idx': fAway, 'status': 'live',
       'home_color': setupHomeColor, 'away_color': setupAwayColor,
       'is_swapped': setupStartSwapped,
@@ -795,12 +815,12 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     int sum = home + away;
     if (sum > 0 && sum % ((set == 3) ? 5 : 7) == 0 && lastSwappedScore != sum) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("SIDEBYTTE!"), backgroundColor: Colors.orange));
-      FirebaseFirestore.instance.collection('matches').doc(widget.matchId).update({
+      _matchRef.update({
         'is_swapped': !isSwapped,
         'last_swapped_score': sum,
       });
     }
-    if (set < 3 && sum == 21 && !techTimeoutTaken) { _takeTimeout(true, isTech: true); FirebaseFirestore.instance.collection('matches').doc(widget.matchId).update({'tech_timeout': true}); }
+    if (set < 3 && sum == 21 && !techTimeoutTaken) { _takeTimeout(true, isTech: true); _matchRef.update({'tech_timeout': true}); }
     int target = (set == 3) ? 15 : 21;
     if ((home >= target && home >= away + 2) || (away >= target && away >= home + 2)) {
        bool isHomeWin = home > away;
@@ -810,8 +830,8 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
 
   void _takeTimeout(bool isHome, {bool isTech = false}) {
     showDialog(context: context, builder: (c) => AlertDialog(title: Text(isTech ? "TEKNISK" : "TIMEOUT"), content: const LinearProgressIndicator(), actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text("Ferdig"))]));
-    if (!isTech) FirebaseFirestore.instance.collection('matches').doc(widget.matchId).update({isHome ? 'timeouts_home' : 'timeouts_away': 1});
-    FirebaseFirestore.instance.collection('matches').doc(widget.matchId).collection('events').add({
+    if (!isTech) _matchRef.update({isHome ? 'timeouts_home' : 'timeouts_away': 1});
+    _events.add({
       'player_name': isTech ? "Teknisk Timeout" : "Timeout tatt av ${isHome ? homeTeamName : awayTeamName}",
       'action': "Timeout",
       'point_to': "none",
@@ -846,7 +866,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     int newAwaySets = !isHomeWin ? awaySets + 1 : awaySets;
 
     WriteBatch batch = FirebaseFirestore.instance.batch();
-    DocumentReference matchRef = FirebaseFirestore.instance.collection('matches').doc(widget.matchId);
+    DocumentReference matchRef = _matchRef;
 
     if (matchWon) {
       batch.update(matchRef, {
