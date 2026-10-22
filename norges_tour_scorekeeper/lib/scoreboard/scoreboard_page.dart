@@ -108,7 +108,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
             _lastCheckedHome = homeScore;
             _lastCheckedAway = awayScore;
             _lastCheckedSet = currentSet;
-            _checkGameRules(homeScore, awayScore, currentSet, data);
+            _checkGameRules(homeScore, awayScore, currentSet);
           }
         });
 

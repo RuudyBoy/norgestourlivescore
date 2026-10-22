@@ -27,7 +27,7 @@ extension _MatchRules on _ScoreboardPageState {
     techTimeoutTaken = data['tech_timeout'] ?? false;
   }
 
-  void _checkGameRules(int home, int away, int set, Map<String, dynamic> matchData) {
+  void _checkGameRules(int home, int away, int set) {
     int sum = home + away;
     if (sum > 0 && sum % ((set == 3) ? 5 : 7) == 0 && lastSwappedScore != sum) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("SIDEBYTTE!"), backgroundColor: Colors.orange));
@@ -40,7 +40,7 @@ extension _MatchRules on _ScoreboardPageState {
     int target = (set == 3) ? 15 : 21;
     if ((home >= target && home >= away + 2) || (away >= target && away >= home + 2)) {
        bool isHomeWin = home > away;
-       _showSetWinDialog(isHomeWin ? homeTeamName : awayTeamName, set, isHomeWin, matchData);
+       _showSetWinDialog(isHomeWin ? homeTeamName : awayTeamName, set, isHomeWin);
     }
   }
 
@@ -56,7 +56,7 @@ extension _MatchRules on _ScoreboardPageState {
     });
   }
 
-  void _showSetWinDialog(String w, int s, bool isHomeWin, Map<String, dynamic> matchData) {
+  void _showSetWinDialog(String w, int s, bool isHomeWin) {
     // Nye snapshots kan trigge _checkGameRules mens dialogen står åpen –
     // vis aldri to sett-dialoger oppå hverandre (dobbel "Neste sett")
     if (setWinDialogShowing) return;
@@ -69,7 +69,7 @@ extension _MatchRules on _ScoreboardPageState {
         ElevatedButton(
           onPressed: () { 
             Navigator.pop(c); 
-            _finishSet(isHomeWin, matchWon, matchData); 
+            _finishSet(isHomeWin, matchWon); 
           }, 
           child: Text(matchWon ? "Avslutt kamp" : "Neste sett")
         )
@@ -77,7 +77,7 @@ extension _MatchRules on _ScoreboardPageState {
     )).then((_) => setWinDialogShowing = false);
   }
 
-  void _finishSet(bool isHomeWin, bool matchWon, Map<String, dynamic> matchData) {
+  void _finishSet(bool isHomeWin, bool matchWon) {
     int newHomeSets = isHomeWin ? homeSets + 1 : homeSets;
     int newAwaySets = !isHomeWin ? awaySets + 1 : awaySets;
 
@@ -92,25 +92,6 @@ extension _MatchRules on _ScoreboardPageState {
         'home_score': newHomeSets, // Ferdig kamp: score = antall vunne sett (leses av admin og spillerappen)
         'away_score': newAwaySets,
       });
-
-      // Puljeplassering for eldre kamptyper (group_final / group_bronze). Admin lager
-      // i dag group_match_3/4, og da settes plasseringen av matchRunner i admin-repoet.
-      String? matchType = matchData['match_type'];
-      if (matchType == 'group_final' || matchType == 'group_bronze') {
-        String? teamAId = matchData['team_a_id'];
-        String? teamBId = matchData['team_b_id'];
-        
-        if (teamAId != null && teamBId != null) {
-          String winnerId = isHomeWin ? teamAId : teamBId;
-          String loserId = isHomeWin ? teamBId : teamAId;
-          
-          int winnerPlacement = matchType == 'group_final' ? 1 : 3;
-          int loserPlacement = matchType == 'group_final' ? 2 : 4;
-          
-          batch.update(FirebaseFirestore.instance.collection('teams').doc(winnerId), {'group_placement': winnerPlacement});
-          batch.update(FirebaseFirestore.instance.collection('teams').doc(loserId), {'group_placement': loserPlacement});
-        }
-      }
     } else {
       batch.update(matchRef, {
         'home_sets': newHomeSets,
