@@ -61,6 +61,6 @@ firebase deploy --only hosting:score-app
 
 ## Status
 
-Fungerende prototype, brukt i demoturneringer. Appen har ingen innlogging i dag. Neste steg er en kortlivet kamp-token i QR-koden, strammere Firestore-regler, og å dele `main.dart` opp i mindre widgets.
+Fungerende prototype, brukt i demoturneringer. Appen har ingen innlogging i dag. Neste steg er en kortlivet kamp-token i QR-koden og strammere Firestore-regler.
 
 Laget av Christian Jørgensen Ruud.
