@@ -65,3 +65,7 @@ firebase deploy --only hosting:score-app
 Fungerende prototype, brukt i demoturneringer. Appen har ingen innlogging i dag. Neste steg er en kortlivet kamp-token i QR-koden og strammere Firestore-regler.
 
 Laget av Christian Jørgensen Ruud.
+
+---
+
+© 2026 Christian Jørgensen Ruud. All rights reserved.
