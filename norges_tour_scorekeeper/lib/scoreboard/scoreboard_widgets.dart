@@ -97,7 +97,7 @@ extension _ScoreboardWidgets on _ScoreboardPageState {
       child: Column(children: [
         Text(team, style: AppText.dispH2(20).copyWith(color: color, fontWeight: FontWeight.bold), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
         const SizedBox(height: 4),
-        Text("$score", style: AppText.dispScore(72).copyWith(height: 1.1)),
+        Text("$score", style: AppText.dispScore(72).copyWith(height: 1.1, color: AppColors.nightInk)),
         if (timeouts > 0) Container(margin: const EdgeInsets.only(top: 8), padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: AppColors.coral, borderRadius: BorderRadius.circular(4)), child: Text("TIMEOUT", style: AppText.uiCta.copyWith(fontSize: 10, color: Colors.white))),
       ]),
     ));
