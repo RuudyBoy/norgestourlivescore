@@ -3,6 +3,7 @@ part of 'scoreboard_page.dart';
 // Kampdata og regler: lese kampdokumentet, sidebytte, timeouts og slutt på sett/kamp.
 extension _MatchRules on _ScoreboardPageState {
   void _initializeData(Map<String, dynamic> data) {
+    _matchData = data;
     homeTeamName = data['team_a_name'] ?? 'Lag A';
     awayTeamName = data['team_b_name'] ?? 'Lag B';
     p1HomeName = data['team_a_p1_name'] ?? "Hjemme 1"; p1HomeId = data['team_a_p1_id']; p1HomeImg = data['team_a_p1_img'];
@@ -50,7 +51,7 @@ extension _MatchRules on _ScoreboardPageState {
     int target = (set == 3) ? 15 : 21;
     if ((home >= target && home >= away + 2) || (away >= target && away >= home + 2)) {
        bool isHomeWin = home > away;
-       _showSetWinDialog(isHomeWin ? homeTeamName : awayTeamName, set, isHomeWin);
+       _showSetWinDialog(isHomeWin ? homeTeamName : awayTeamName, set, isHomeWin, home, away);
     }
   }
 
@@ -66,7 +67,9 @@ extension _MatchRules on _ScoreboardPageState {
     });
   }
 
-  void _showSetWinDialog(String w, int s, bool isHomeWin) {
+  /// [setHome]/[setAway] er stillingen som avgjorde settet. Den sendes videre
+  /// til _finishSet fordi `_lastChecked*` kan endre seg mens dialogen er åpen.
+  void _showSetWinDialog(String w, int s, bool isHomeWin, int setHome, int setAway) {
     // Nye snapshots kan trigge _checkGameRules mens dialogen står åpen –
     // vis aldri to sett-dialoger oppå hverandre (dobbel "Neste sett")
     if (setWinDialogShowing) return;
@@ -79,7 +82,7 @@ extension _MatchRules on _ScoreboardPageState {
         ElevatedButton(
           onPressed: () { 
             Navigator.pop(c); 
-            _finishSet(isHomeWin, matchWon); 
+            _finishSet(isHomeWin, matchWon, setHome: setHome, setAway: setAway, setNumber: s);
           }, 
           child: Text(matchWon ? "Avslutt kamp" : "Neste sett")
         )
@@ -87,12 +90,22 @@ extension _MatchRules on _ScoreboardPageState {
     )).then((_) => setWinDialogShowing = false);
   }
 
-  void _finishSet(bool isHomeWin, bool matchWon) {
+  void _finishSet(bool isHomeWin, bool matchWon, {required int setHome, required int setAway, required int setNumber}) {
     int newHomeSets = isHomeWin ? homeSets + 1 : homeSets;
     int newAwaySets = !isHomeWin ? awaySets + 1 : awaySets;
 
     WriteBatch batch = FirebaseFirestore.instance.batch();
     DocumentReference matchRef = _matchRef;
+
+    // Settresultatet («21-17») til admin og appen. `set` gjør hvert element
+    // unikt, så to like sett slås ikke sammen av arrayUnion. Et sett som
+    // allerede er lagret skrives ikke på nytt.
+    final pastSets = _matchData['past_sets'] as List? ?? const [];
+    final alreadySaved = pastSets.any((s) => s is Map && s['set'] == setNumber);
+    final pastSetsUpdate = <String, dynamic>{
+      if (!alreadySaved)
+        'past_sets': FieldValue.arrayUnion([{'home': setHome, 'away': setAway, 'set': setNumber}]),
+    };
 
     if (matchWon) {
       batch.update(matchRef, {
@@ -101,9 +114,11 @@ extension _MatchRules on _ScoreboardPageState {
         'away_sets': newAwaySets,
         'home_score': newHomeSets, // Ferdig kamp: score = antall vunne sett (leses av admin og spillerappen)
         'away_score': newAwaySets,
+        ...pastSetsUpdate,
       });
     } else {
       batch.update(matchRef, {
+        ...pastSetsUpdate,
         'home_sets': newHomeSets,
         'away_sets': newAwaySets,
         'home_score': 0, 

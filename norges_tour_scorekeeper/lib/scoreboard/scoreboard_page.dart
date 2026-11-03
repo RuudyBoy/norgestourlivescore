@@ -29,6 +29,9 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   String? p1HomeId, p2HomeId, p1AwayId, p2AwayId;
   String? p1HomeImg, p2HomeImg, p1AwayImg, p2AwayImg;
 
+  // Kampdokumentet fra siste snapshot.
+  Map<String, dynamic> _matchData = {};
+
   // ── Serve, timeouts og sett ──
   bool isSetupDone = false;
   String servingTeam = "";
