@@ -27,6 +27,16 @@ extension _MatchRules on _ScoreboardPageState {
     techTimeoutTaken = data['tech_timeout'] ?? false;
   }
 
+  /// Ny stilling, enten fra en snapshot eller fra et poeng denne enheten nettopp
+  /// lagret. Reglene sjekkes bare én gang per stilling, uansett hva som kommer først.
+  void _applyScore(int home, int away, int set) {
+    if (home == _lastCheckedHome && away == _lastCheckedAway && set == _lastCheckedSet) return;
+    _lastCheckedHome = home;
+    _lastCheckedAway = away;
+    _lastCheckedSet = set;
+    _checkGameRules(home, away, set);
+  }
+
   void _checkGameRules(int home, int away, int set) {
     int sum = home + away;
     if (sum > 0 && sum % ((set == 3) ? 5 : 7) == 0 && lastSwappedScore != sum) {

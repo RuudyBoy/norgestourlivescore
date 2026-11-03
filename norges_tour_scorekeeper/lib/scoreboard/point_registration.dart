@@ -53,7 +53,15 @@ extension _PointRegistration on _ScoreboardPageState {
     );
   }
 
-  void _registerStat(String name, String? id, String team, bool isHomeTeam, String actionType, bool isPositive, {String? subType, bool shouldPop = true, Map<String, dynamic>? extraData}) {
+  /// [extraEvents] er tilleggs-events uten poeng (Reception Error, Blocked) som
+  /// skal lagres i samme batch som poenget.
+  Future<void> _registerStat(String name, String? id, String team, bool isHomeTeam, String actionType, bool isPositive, {String? subType, bool shouldPop = true, Map<String, dynamic>? extraData, List<Map<String, dynamic>> extraEvents = const []}) async {
+    // Bruk pop (ikke popUntil) for å unngå problemer med ruting på web
+    if (shouldPop && Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
+    if (_busy) return;
+
     bool pointToHome = isPositive ? isHomeTeam : !isHomeTeam;
 
     // Fasen regnes ut fra hvem som serverte FØR poenget: vinner laget som
@@ -61,48 +69,84 @@ extension _PointRegistration on _ScoreboardPageState {
     bool wasHomeServing = servingTeam == 'home';
     final phase = pointToHome ? (wasHomeServing ? "Break Point" : "Sideout") : (!wasHomeServing ? "Break Point" : "Sideout");
 
-    _updateServeLogic(pointToHome);
-
-    _matchRef.update({
-      pointToHome ? 'home_score' : 'away_score': FieldValue.increment(1),
-    });
-
-    int newHomeScore = _lastCheckedHome + (pointToHome ? 1 : 0);
-    int newAwayScore = _lastCheckedAway + (!pointToHome ? 1 : 0);
-
     Map<String, dynamic> eventData = {
       'player_name': name,
       'player_id': id,
       'team': team,
       'action': actionType,
       'sub_type': subType,
-      'point_to': pointToHome ? 'home' : 'away',
       'phase': phase,
+    };
+    if (extraData != null) {
+      eventData.addAll(extraData);
+    }
+
+    final events = [...extraEvents];
+    if (actionType == "Kill" || actionType == "Attack Error") {
+      events.addAll(_assistEvents(name, team, isHomeTeam, actionType, phase));
+    }
+    if (actionType != "Ace" && actionType != "Service Error") {
+      events.add(_serveInPlayEvent(phase));
+    }
+
+    await _commitPoint(pointToHome, eventData, events);
+  }
+
+  /// Skriver poenget, ny serve, poeng-eventet og [extraEvents] i én batch.
+  /// Stillingen i eventet regnes ut her, og knappene er låst (`_busy`) til
+  /// batchen er lagret, slik at neste trykk alltid ser riktig stilling og serve.
+  Future<void> _commitPoint(bool pointToHome, Map<String, dynamic> pointEvent, List<Map<String, dynamic>> extraEvents) async {
+    final next = _nextServe(pointToHome);
+    final newHomeScore = _lastCheckedHome + (pointToHome ? 1 : 0);
+    final newAwayScore = _lastCheckedAway + (!pointToHome ? 1 : 0);
+    final setNumber = _lastCheckedSet;
+
+    final batch = FirebaseFirestore.instance.batch();
+    batch.update(_matchRef, {
+      pointToHome ? 'home_score' : 'away_score': FieldValue.increment(1),
+      'serving_team': next.team,
+      'server_home_idx': next.homeIdx,
+      'server_away_idx': next.awayIdx,
+    });
+    batch.set(_events.doc(), {
+      ...pointEvent,
+      'point_to': pointToHome ? 'home' : 'away',
       'timestamp': FieldValue.serverTimestamp(),
       'prev_serving_team': servingTeam,
       'prev_server_home_idx': serverHomeIdx,
       'prev_server_away_idx': serverAwayIdx,
       'home_score': newHomeScore,
       'away_score': newAwayScore,
-      'set_number': _lastCheckedSet,
-    };
-    if (extraData != null) {
-      eventData.addAll(extraData);
+      'set_number': setNumber,
+    });
+    for (final event in extraEvents) {
+      batch.set(_events.doc(), event);
     }
-    _events.add(eventData);
 
-    if (actionType == "Kill" || actionType == "Attack Error") {
-      _handleAssistLog(name, team, isHomeTeam, actionType, phase);
+    _refresh(() => _busy = true);
+    bool saved = true;
+    try {
+      // Uten nett fullføres commit() ikke før nettet er tilbake. Firestore køer
+      // skrivingen lokalt, så etter 3 sekunder slippes tavla og vi fortsetter.
+      await batch.commit().timeout(const Duration(seconds: 3));
+    } on TimeoutException {
+      // Skrivingen ligger i køen – fortsett med lokale verdier.
+    } catch (e) {
+      saved = false;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Kunne ikke lagre poenget: $e"), backgroundColor: AppColors.coral));
+      }
+    } finally {
+      if (mounted) _refresh(() => _busy = false);
     }
-    
-    if (actionType != "Ace" && actionType != "Service Error") {
-      _dispatchServeInPlay(phase);
-    }
-    
-    // Bruk pop (ikke popUntil) for å unngå problemer med ruting på web
-    if (shouldPop && Navigator.canPop(context)) {
-      Navigator.pop(context);
-    }
+
+    if (!saved || !mounted) return;
+    _refresh(() {
+      servingTeam = next.team;
+      serverHomeIdx = next.homeIdx;
+      serverAwayIdx = next.awayIdx;
+    });
+    _applyScore(newHomeScore, newAwayScore, setNumber);
   }
 
   /// Spillerne og navnet på laget som står mot [isHome]-laget.
@@ -147,13 +191,12 @@ extension _PointRegistration on _ScoreboardPageState {
 
   void _registerAceComplex(String sName, String? sId, String sTeam, bool isHome, String vName, String? vId, String vTeam, String serveType) {
     if (Navigator.canPop(context)) Navigator.pop(context); // Lukk dialog
-    _registerStat(sName, sId, sTeam, isHome, "Ace", true, subType: serveType, shouldPop: false, extraData: {'victim_name': vName});
-    _events.add({
+    _registerStat(sName, sId, sTeam, isHome, "Ace", true, subType: serveType, shouldPop: false, extraData: {'victim_name': vName}, extraEvents: [{
       'player_name': vName, 'player_id': vId, 'team': vTeam,
       'action': "Reception Error", 'sub_type': serveType, 'point_to': "none",
       'timestamp': FieldValue.serverTimestamp(),
       'is_ace': true,
-    });
+    }]);
   }
 
   void _handleKillSelection(String name, String? id, String team, bool isHomeTeam) {
@@ -183,8 +226,7 @@ extension _PointRegistration on _ScoreboardPageState {
 
   void _registerBlock(String name, String? id, String team, bool isHomeTeam, String oppName, String? oppId, String oppTeam, BuildContext dialogContext) {
     if (Navigator.canPop(dialogContext)) Navigator.pop(dialogContext);
-    _registerStat(name, id, team, isHomeTeam, "Block", true, shouldPop: false, extraData: {'victim_name': oppName});
-    _events.add({
+    _registerStat(name, id, team, isHomeTeam, "Block", true, shouldPop: false, extraData: {'victim_name': oppName}, extraEvents: [{
       'player_name': oppName,
       'player_id': oppId,
       'team': oppTeam,
@@ -192,39 +234,25 @@ extension _PointRegistration on _ScoreboardPageState {
       'point_to': "none",
       'timestamp': FieldValue.serverTimestamp(),
       'is_block': true,
-    });
+    }]);
   }
 
-  void _registerOpponentError(bool pointToHome) {
+  Future<void> _registerOpponentError(bool pointToHome) async {
+    if (_busy) return;
     String teamName = pointToHome ? homeTeamName : awayTeamName;
-    _updateServeLogic(pointToHome);
-    _matchRef.update({
-      pointToHome ? 'home_score' : 'away_score': FieldValue.increment(1),
-    });
-    int newHomeScore = _lastCheckedHome + (pointToHome ? 1 : 0);
-    int newAwayScore = _lastCheckedAway + (!pointToHome ? 1 : 0);
+    String phase = pointToHome ? (servingTeam == 'home' ? "Break Point" : "Sideout") : (servingTeam == 'away' ? "Break Point" : "Sideout");
 
-    _events.add({
+    await _commitPoint(pointToHome, {
       'player_name': "Lag",
       'player_id': null,
       'team': teamName,
       'action': "Opponent Error",
-      'point_to': pointToHome ? 'home' : 'away',
       'phase': "Unknown",
-      'timestamp': FieldValue.serverTimestamp(),
-      'prev_serving_team': servingTeam,
-      'prev_server_home_idx': serverHomeIdx,
-      'prev_server_away_idx': serverAwayIdx,
-      'home_score': newHomeScore,
-      'away_score': newAwayScore,
-      'set_number': _lastCheckedSet,
-    });
-    
-    String phase = pointToHome ? (servingTeam == 'home' ? "Break Point" : "Sideout") : (servingTeam == 'away' ? "Break Point" : "Sideout");
-    _dispatchServeInPlay(phase);
+    }, [_serveInPlayEvent(phase)]);
   }
 
-  void _dispatchServeInPlay(String phase) {
+  /// «Serve In Play» for den som serverte ballen (serven FØR poenget).
+  Map<String, dynamic> _serveInPlayEvent(String phase) {
     String sName = '';
     String? sId;
     String sTeam = servingTeam == 'home' ? homeTeamName : awayTeamName;
@@ -235,7 +263,7 @@ extension _PointRegistration on _ScoreboardPageState {
       sName = serverAwayIdx == 1 ? p1AwayName : p2AwayName;
       sId = serverAwayIdx == 1 ? p1AwayId : p2AwayId;
     }
-    _events.add({
+    return {
       'player_name': sName,
       'player_id': sId,
       'team': sTeam,
@@ -243,10 +271,12 @@ extension _PointRegistration on _ScoreboardPageState {
       'point_to': "none",
       'phase': phase,
       'timestamp': FieldValue.serverTimestamp(),
-    });
+    };
   }
 
-  void _updateServeLogic(bool pointToHome) {
+  /// Serven etter poenget: laget som vant poenget server, og laget som vinner
+  /// serven tilbake bytter server.
+  ({String team, int homeIdx, int awayIdx}) _nextServe(bool pointToHome) {
     bool homeWasServing = servingTeam == 'home';
     String nextServingTeam = pointToHome ? 'home' : 'away';
     int nextServerHomeIdx = serverHomeIdx;
@@ -258,27 +288,24 @@ extension _PointRegistration on _ScoreboardPageState {
       nextServerHomeIdx = (serverHomeIdx == 1) ? 2 : 1;
     }
 
-    _matchRef.update({
-      'serving_team': nextServingTeam,
-      'server_home_idx': nextServerHomeIdx,
-      'server_away_idx': nextServerAwayIdx,
-    });
+    return (team: nextServingTeam, homeIdx: nextServerHomeIdx, awayIdx: nextServerAwayIdx);
   }
 
-  void _handleAssistLog(String name, String team, bool isHomeTeam, String actionType, String phase) {
+  /// «Set Assist» (bare ved Kill) og «Set Attempt» for makkeren.
+  List<Map<String, dynamic>> _assistEvents(String name, String team, bool isHomeTeam, String actionType, String phase) {
     String partnerName = isHomeTeam ? (name == p1HomeName ? p2HomeName : p1HomeName) : (name == p1AwayName ? p2AwayName : p1AwayName);
     String? partnerId = isHomeTeam ? (name == p1HomeName ? p2HomeId : p1HomeId) : (name == p1AwayName ? p2AwayId : p1AwayId);
 
-    if (actionType == "Kill") {
-      _events.add({
+    return [
+      if (actionType == "Kill") {
         'player_name': partnerName, 'player_id': partnerId, 'team': team,
         'action': "Set Assist", 'point_to': "none", 'phase': phase, 'timestamp': FieldValue.serverTimestamp(),
-      });
-    }
-    _events.add({
-      'player_name': partnerName, 'player_id': partnerId, 'team': team,
-      'action': "Set Attempt", 'point_to': "none", 'phase': phase, 'timestamp': FieldValue.serverTimestamp(),
-    });
+      },
+      {
+        'player_name': partnerName, 'player_id': partnerId, 'team': team,
+        'action': "Set Attempt", 'point_to': "none", 'phase': phase, 'timestamp': FieldValue.serverTimestamp(),
+      },
+    ];
   }
 
   void _undoLastAction() async {

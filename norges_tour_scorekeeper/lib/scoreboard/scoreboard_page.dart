@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:norges_tour_scorekeeper/theme/app_colors.dart';
@@ -34,6 +36,10 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   int homeTimeoutsUsed = 0, awayTimeoutsUsed = 0;
   bool techTimeoutTaken = false;
   bool setWinDialogShowing = false;
+
+  // True mens et poeng eller et angre lagres. Låser knappene så to raske trykk
+  // ikke regnes ut fra samme stilling.
+  bool _busy = false;
 
   // Siste stilling som er sjekket mot reglene (sidebytte, sett ferdig).
   int _lastCheckedHome = -1;
@@ -103,14 +109,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
         homeSets = data['home_sets'] ?? 0;
         awaySets = data['away_sets'] ?? 0;
 
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (homeScore != _lastCheckedHome || awayScore != _lastCheckedAway || currentSet != _lastCheckedSet) {
-            _lastCheckedHome = homeScore;
-            _lastCheckedAway = awayScore;
-            _lastCheckedSet = currentSet;
-            _checkGameRules(homeScore, awayScore, currentSet);
-          }
-        });
+        WidgetsBinding.instance.addPostFrameCallback((_) => _applyScore(homeScore, awayScore, currentSet));
 
         return Scaffold(
           backgroundColor: Colors.transparent,

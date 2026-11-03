@@ -29,7 +29,7 @@ extension _ScoreboardWidgets on _ScoreboardPageState {
         const SizedBox(height: 10),
         _buildPlayerButton(isHome ? p2HomeName : p2AwayName, isHome ? p2HomeId : p2AwayId, team, isHome, isHome ? p2HomeImg : p2AwayImg, 2),
         const SizedBox(height: 10),
-        _buildTeamActionButton("Motstander feil", _getColor(isHome ? homeColorStr : awayColorStr), () => _registerOpponentError(isHome)),
+        _buildTeamActionButton("Motstander feil", _getColor(isHome ? homeColorStr : awayColorStr), _busy ? null : () => _registerOpponentError(isHome)),
       ]));
     }
 
@@ -50,7 +50,7 @@ extension _ScoreboardWidgets on _ScoreboardPageState {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: OutlinedButton.icon(
-        onPressed: _undoLastAction,
+        onPressed: _busy ? null : _undoLastAction,
         icon: const Icon(Icons.undo, size: 20),
         label: const Text("Angre siste poeng"),
         style: OutlinedButton.styleFrom(foregroundColor: AppColors.nightInk2, side: BorderSide(color: AppColors.nightInk2.withValues(alpha: 0.3))),
@@ -107,10 +107,12 @@ extension _ScoreboardWidgets on _ScoreboardPageState {
     final isServing = _isServing(isHomeTeam, playerIdx);
     Color teamColor = isHomeTeam ? _getColor(homeColorStr) : _getColor(awayColorStr);
     
-    return Expanded(child: SizedBox(width: double.infinity, child: ElevatedButton(
+    return Expanded(child: Opacity(opacity: _busy ? 0.5 : 1, child: SizedBox(width: double.infinity, child: ElevatedButton(
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.nightSurface1,
         foregroundColor: Colors.white,
+        disabledBackgroundColor: AppColors.nightSurface1,
+        disabledForegroundColor: Colors.white,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusButton), 
@@ -118,7 +120,7 @@ extension _ScoreboardWidgets on _ScoreboardPageState {
         ),
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       ),
-      onPressed: () => _showActionSheet(name, id, team, isHomeTeam, playerIdx),
+      onPressed: _busy ? null : () => _showActionSheet(name, id, team, isHomeTeam, playerIdx),
       child: Stack(children: [
         Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Container(
@@ -133,7 +135,7 @@ extension _ScoreboardWidgets on _ScoreboardPageState {
         ])),
         if (isServing) Positioned(right: 0, top: 0, child: Icon(Icons.sports_volleyball, color: teamColor, size: 20)),
       ]),
-    )));
+    ))));
   }
 
   Widget _actionBtn(String text, Color color, VoidCallback onTap) {
@@ -149,8 +151,8 @@ extension _ScoreboardWidgets on _ScoreboardPageState {
     ));
   }
 
-  Widget _buildTeamActionButton(String text, Color color, VoidCallback onTap) {
-    return SizedBox(width: double.infinity, child: OutlinedButton(
+  Widget _buildTeamActionButton(String text, Color color, VoidCallback? onTap) {
+    return Opacity(opacity: onTap == null ? 0.5 : 1, child: SizedBox(width: double.infinity, child: OutlinedButton(
       style: OutlinedButton.styleFrom(
         foregroundColor: color,
         side: BorderSide(color: color.withValues(alpha: 0.3)),
@@ -159,6 +161,6 @@ extension _ScoreboardWidgets on _ScoreboardPageState {
       ),
       onPressed: onTap,
       child: Text(text, textAlign: TextAlign.center, style: AppText.uiCta.copyWith(fontSize: 14, color: color)),
-    ));
+    )));
   }
 }
