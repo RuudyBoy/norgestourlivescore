@@ -31,6 +31,9 @@ extension _MatchRules on _ScoreboardPageState {
   /// Ny stilling, enten fra en snapshot eller fra et poeng denne enheten nettopp
   /// lagret. Reglene sjekkes bare én gang per stilling, uansett hva som kommer først.
   void _applyScore(int home, int away, int set) {
+    // «Bare se»: reglene håndteres av enheten som fører kampen. Stillingen
+    // merkes ikke som sjekket, så den sjekkes hvis denne enheten tar over.
+    if (_viewOnly) return;
     if (home == _lastCheckedHome && away == _lastCheckedAway && set == _lastCheckedSet) return;
     _lastCheckedHome = home;
     _lastCheckedAway = away;
@@ -91,6 +94,8 @@ extension _MatchRules on _ScoreboardPageState {
   }
 
   void _finishSet(bool isHomeWin, bool matchWon, {required int setHome, required int setAway, required int setNumber}) {
+    // En annen enhet tok over mens dialogen var åpen.
+    if (_viewOnly) return;
     int newHomeSets = isHomeWin ? homeSets + 1 : homeSets;
     int newAwaySets = !isHomeWin ? awaySets + 1 : awaySets;
 

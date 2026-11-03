@@ -96,6 +96,7 @@ extension _SetupScreen on _ScoreboardPageState {
   }
 
   void _finishSetup() {
+    if (_viewOnly) return;
     int fHome = setupHomeFirstServer, fAway = setupAwayFirstServer;
     if (setupServingTeam == 'away') {
       fHome = (fHome == 1) ? 2 : 1;
@@ -107,6 +108,9 @@ extension _SetupScreen on _ScoreboardPageState {
       'home_color': setupHomeColor, 'away_color': setupAwayColor,
       'is_swapped': setupStartSwapped,
       'last_swapped_score': -1,
+      // Enheten som starter kampen fører den. Ved nytt sett er feltet allerede
+      // satt (til denne fanen, ellers vises ikke oppsettet) og beholdes.
+      if (_matchData['scorer_session'] == null) 'scorer_session': scorerSession,
     });
   }
 }

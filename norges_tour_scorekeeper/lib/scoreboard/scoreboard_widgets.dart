@@ -28,8 +28,10 @@ extension _ScoreboardWidgets on _ScoreboardPageState {
         _buildPlayerButton(isHome ? p1HomeName : p1AwayName, isHome ? p1HomeId : p1AwayId, team, isHome, isHome ? p1HomeImg : p1AwayImg, 1),
         const SizedBox(height: 10),
         _buildPlayerButton(isHome ? p2HomeName : p2AwayName, isHome ? p2HomeId : p2AwayId, team, isHome, isHome ? p2HomeImg : p2AwayImg, 2),
-        const SizedBox(height: 10),
-        _buildTeamActionButton("Motstander feil", _getColor(isHome ? homeColorStr : awayColorStr), _busy ? null : () => _registerOpponentError(isHome)),
+        if (!_viewOnly) ...[
+          const SizedBox(height: 10),
+          _buildTeamActionButton("Motstander feil", _getColor(isHome ? homeColorStr : awayColorStr), _busy ? null : () => _registerOpponentError(isHome)),
+        ],
       ]));
     }
 
@@ -54,6 +56,62 @@ extension _ScoreboardWidgets on _ScoreboardPageState {
         icon: const Icon(Icons.undo, size: 20),
         label: const Text("Angre siste poeng"),
         style: OutlinedButton.styleFrom(foregroundColor: AppColors.nightInk2, side: BorderSide(color: AppColors.nightInk2.withValues(alpha: 0.3))),
+      ),
+    );
+  }
+
+  /// Øverst på tavla i «Bare se»-modus.
+  Widget _buildViewOnlyBanner() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.nightSurface1,
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.5)),
+      ),
+      child: Row(children: [
+        const Icon(Icons.visibility, color: Colors.orangeAccent, size: 20),
+        const SizedBox(width: 10),
+        Expanded(child: Text("Denne kampen føres på en annen enhet.", style: AppText.uiBody.copyWith(color: AppColors.nightInk))),
+        const SizedBox(width: 8),
+        TextButton(onPressed: _confirmTakeOver, child: const Text("Ta over kampen")),
+      ]),
+    );
+  }
+
+  /// Oppsettskjermen for neste sett, når kampen føres på en annen enhet.
+  Widget _buildViewOnlySetup() {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(title: const Text("Kampoppsett")),
+      body: Column(children: [
+        _buildViewOnlyBanner(),
+        Expanded(child: Center(child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text("Venter på at settet settes opp på den andre enheten.", textAlign: TextAlign.center, style: AppText.uiBody.copyWith(color: AppColors.nightInk2)),
+        ))),
+      ]),
+    );
+  }
+
+  void _confirmTakeOver() {
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text("Ta over kampen?"),
+        content: const Text("Den andre enheten kan ikke registrere poeng etter dette."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text("Avbryt")),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(c);
+              _matchRef.update({'scorer_session': scorerSession});
+            },
+            child: const Text("Ta over"),
+          ),
+        ],
       ),
     );
   }
@@ -120,7 +178,7 @@ extension _ScoreboardWidgets on _ScoreboardPageState {
         ),
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       ),
-      onPressed: _busy ? null : () => _showActionSheet(name, id, team, isHomeTeam, playerIdx),
+      onPressed: (_busy || _viewOnly) ? null : () => _showActionSheet(name, id, team, isHomeTeam, playerIdx),
       child: Stack(children: [
         Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Container(

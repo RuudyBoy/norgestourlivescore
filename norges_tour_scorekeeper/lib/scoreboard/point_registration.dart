@@ -96,6 +96,8 @@ extension _PointRegistration on _ScoreboardPageState {
   /// Stillingen i eventet regnes ut her, og knappene er låst (`_busy`) til
   /// batchen er lagret, slik at neste trykk alltid ser riktig stilling og serve.
   Future<void> _commitPoint(bool pointToHome, Map<String, dynamic> pointEvent, List<Map<String, dynamic>> extraEvents) async {
+    // En annen enhet kan ha tatt over mens handlingsmenyen var åpen.
+    if (_viewOnly) return;
     final next = _nextServe(pointToHome);
     final newHomeScore = _lastCheckedHome + (pointToHome ? 1 : 0);
     final newAwayScore = _lastCheckedAway + (!pointToHome ? 1 : 0);
@@ -317,7 +319,7 @@ extension _PointRegistration on _ScoreboardPageState {
   /// tilbake og sletter poeng-eventet med tilhørende events (innen 1 sekund).
   /// Ferdige kamper og poeng fra tidligere sett rettes i admin.
   Future<void> _undoLastAction() async {
-    if (_busy) return;
+    if (_busy || _viewOnly) return;
     if (_matchData['status'] == 'finished') {
       _showUndoMessage("Kampen er avsluttet – rett resultatet i admin.");
       return;

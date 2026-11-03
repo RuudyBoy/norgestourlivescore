@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:norges_tour_scorekeeper/scorer_session.dart';
 import 'package:norges_tour_scorekeeper/theme/app_colors.dart';
 import 'package:norges_tour_scorekeeper/theme/app_text_styles.dart';
 import 'package:norges_tour_scorekeeper/theme/app_theme.dart';
@@ -70,6 +71,13 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   /// Hver handling i kampen lagres som et eget dokument her.
   CollectionReference<Map<String, dynamic>> get _events => _matchRef.collection('events');
 
+  /// «Bare se»: kampen føres på en annen enhet (annen `scorer_session`).
+  /// Kamper uten `scorer_session` (gamle kamper) kan føres som før.
+  bool get _viewOnly {
+    final owner = _matchData['scorer_session'];
+    return owner != null && owner != scorerSession;
+  }
+
   /// Om spiller [playerIdx] (1 eller 2) på laget har serven nå.
   bool _isServing(bool isHomeTeam, int playerIdx) =>
       (isHomeTeam && servingTeam == 'home' && serverHomeIdx == playerIdx) ||
@@ -104,7 +112,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
         final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
         _initializeData(data);
 
-        if (!isSetupDone) return _buildSetupScreen();
+        if (!isSetupDone) return _viewOnly ? _buildViewOnlySetup() : _buildSetupScreen();
 
         final homeScore = data['home_score'] ?? 0;
         final awayScore = data['away_score'] ?? 0;
@@ -126,19 +134,22 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
               ],
             ),
             centerTitle: true,
-            leading: IconButton(icon: const Icon(Icons.swap_horiz), onPressed: () => _matchRef.update({'is_swapped': !isSwapped})),
+            leading: _viewOnly ? null : IconButton(icon: const Icon(Icons.swap_horiz), onPressed: () => _matchRef.update({'is_swapped': !isSwapped})),
             actions: [
               IconButton(icon: const Icon(Icons.info_outline), onPressed: _showInfoModal),
-              IconButton(icon: const Icon(Icons.timer), color: _getColor(homeColorStr), onPressed: homeTimeoutsUsed == 0 ? () => _takeTimeout(true) : null),
-              IconButton(icon: const Icon(Icons.timer), color: _getColor(awayColorStr), onPressed: awayTimeoutsUsed == 0 ? () => _takeTimeout(false) : null),
+              if (!_viewOnly) ...[
+                IconButton(icon: const Icon(Icons.timer), color: _getColor(homeColorStr), onPressed: homeTimeoutsUsed == 0 ? () => _takeTimeout(true) : null),
+                IconButton(icon: const Icon(Icons.timer), color: _getColor(awayColorStr), onPressed: awayTimeoutsUsed == 0 ? () => _takeTimeout(false) : null),
+              ],
             ],
           ),
           body: Column(
             children: [
+              if (_viewOnly) _buildViewOnlyBanner(),
               _buildScoreboard(homeScore, awayScore),
               const SizedBox(height: 8),
               _buildPlayerArea(),
-              _buildUndoButton(),
+              if (!_viewOnly) _buildUndoButton(),
               const SizedBox(height: 12),
             ],
           ),
