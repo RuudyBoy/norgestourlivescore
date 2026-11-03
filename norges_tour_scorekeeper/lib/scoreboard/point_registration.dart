@@ -308,40 +308,87 @@ extension _PointRegistration on _ScoreboardPageState {
     ];
   }
 
-  void _undoLastAction() async {
-    final events = await _events.orderBy('timestamp', descending: true).limit(5).get();
-    if (events.docs.isNotEmpty) {
+  void _showUndoMessage(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text), backgroundColor: AppColors.coral));
+  }
+
+  /// Angrer siste poeng i settet som pågår: trekker fra poenget, setter serven
+  /// tilbake og sletter poeng-eventet med tilhørende events (innen 1 sekund).
+  /// Ferdige kamper og poeng fra tidligere sett rettes i admin.
+  Future<void> _undoLastAction() async {
+    if (_busy) return;
+    if (_matchData['status'] == 'finished') {
+      _showUndoMessage("Kampen er avsluttet – rett resultatet i admin.");
+      return;
+    }
+
+    _refresh(() => _busy = true);
+    try {
+      final events = await _events.orderBy('timestamp', descending: true).limit(10).get();
+      final docs = events.docs;
+
+      // Events som ikke er bekreftet av serveren ennå har ikke tidspunkt.
+      // Vent til de er lagret i stedet for å angre et eldre poeng.
+      final pointIdx = docs.indexWhere((d) => d.data()['point_to'] == 'home' || d.data()['point_to'] == 'away');
+      if (pointIdx < 0) {
+        _showUndoMessage("Fant ikke noe poeng å angre.");
+        return;
+      }
+      final pointEvent = docs[pointIdx].data();
+      final pointTimestamp = pointEvent['timestamp'] as Timestamp?;
+      if (docs.first.data()['timestamp'] == null || pointTimestamp == null) {
+        _showUndoMessage("Siste poeng lagres fortsatt – prøv igjen om et øyeblikk.");
+        return;
+      }
+
+      final currentSet = _matchData['current_set'] ?? 1;
+      if (pointEvent['set_number'] != currentSet) {
+        _showUndoMessage("Kan ikke angre poeng fra forrige sett – rett resultatet i admin.");
+        return;
+      }
+
+      final pointHome = pointEvent['point_to'] == 'home';
+      final teamScore = (_matchData[pointHome ? 'home_score' : 'away_score'] as num?)?.toInt() ?? 0;
+      if (teamScore <= 0) {
+        _showUndoMessage("Stillingen er allerede 0 – ingenting å angre.");
+        return;
+      }
+
       // Poengtrekk og event-sletting i én batch slik at de skjer atomisk
       final batch = FirebaseFirestore.instance.batch();
-      final lastEvent = events.docs.first;
-      final lastTime = (lastEvent.data()['timestamp'] as Timestamp?)?.toDate();
-      
-      bool pointRemoved = false;
-      
-      for (var doc in events.docs) {
-        final data = doc.data();
-        final time = (data['timestamp'] as Timestamp?)?.toDate();
-        if (time != null && lastTime != null && lastTime.difference(time).inSeconds.abs() <= 1) {
-          if (!pointRemoved && data['point_to'] != 'none') {
-            bool pointHome = data['point_to'] == 'home';
-            
-            final updateData = <String, dynamic>{
-              pointHome ? 'home_score' : 'away_score': FieldValue.increment(-1),
-            };
-            
-            if (data['prev_serving_team'] != null) {
-              updateData['serving_team'] = data['prev_serving_team'];
-              updateData['server_home_idx'] = data['prev_server_home_idx'];
-              updateData['server_away_idx'] = data['prev_server_away_idx'];
-            }
+      final updateData = <String, dynamic>{
+        pointHome ? 'home_score' : 'away_score': FieldValue.increment(-1),
+      };
+      if (pointEvent['prev_serving_team'] != null) {
+        updateData['serving_team'] = pointEvent['prev_serving_team'];
+        updateData['server_home_idx'] = pointEvent['prev_server_home_idx'];
+        updateData['server_away_idx'] = pointEvent['prev_server_away_idx'];
+      }
+      batch.update(_matchRef, updateData);
 
-            batch.update(_matchRef, updateData);
-            pointRemoved = true;
-          }
-          batch.delete(doc.reference);
+      // Poenget og tilleggs-eventene (Serve In Play, Set Assist osv.) har samme
+      // tidspunkt, så alt innen 1 sekund av poenget slettes sammen med det.
+      // Andre poeng-events slettes aldri, siden bare ett poeng trekkes fra.
+      final pointTime = pointTimestamp.toDate();
+      for (var i = 0; i < docs.length; i++) {
+        final data = docs[i].data();
+        final isOtherPoint = i != pointIdx && (data['point_to'] == 'home' || data['point_to'] == 'away');
+        final time = (data['timestamp'] as Timestamp?)?.toDate();
+        if (!isOtherPoint && time != null && pointTime.difference(time).inSeconds.abs() <= 1) {
+          batch.delete(docs[i].reference);
         }
       }
-      await batch.commit();
+
+      try {
+        await batch.commit().timeout(const Duration(seconds: 3));
+      } on TimeoutException {
+        // Uten nett: Firestore køer skrivingen lokalt.
+      }
+    } catch (e) {
+      _showUndoMessage("Kunne ikke angre: $e");
+    } finally {
+      if (mounted) _refresh(() => _busy = false);
     }
   }
 }
